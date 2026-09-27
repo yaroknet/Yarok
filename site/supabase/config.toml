@@ -1,0 +1,44 @@
+project_id = "bxbajdouhgafnvcfuput"
+
+[functions.check-reminders]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.check-monthly-km]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.update-cron-settings]
+verify_jwt = false
+
+[functions.check-expiring-documents]
+verify_jwt = false
+
+[functions.check-fines-deadline]
+verify_jwt = false
+
+[functions.check-clock-change]
+verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
+
+[functions.procurement-form]
+verify_jwt = false
+
+[functions.fleet-km-cron]
+verify_jwt = false
+
+[functions.fleet-km-public]
+verify_jwt = false
+
+[functions.fleet-alerts-cron]
+verify_jwt = false
+
+
+[functions.sync-to-external-supabase]
+verify_jwt = false

@@ -1,0 +1,33 @@
+# Robots.txt for yaroknet.co.il
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: *
+Allow: /
+
+# Block legacy ASP pages (they no longer exist)
+Disallow: /*.asp$
+
+# Block internal app routes from indexing
+Disallow: /auth
+Disallow: /portal
+Disallow: /admin
+Disallow: /fleet/
+Disallow: /client-auth
+Disallow: /client-portal
+
+# Block the lovable.app subdomain from indexing
+# (handled via noindex meta tag on that host)
+
+# Sitemap location
+Sitemap: https://yaroknet.co.il/sitemap.xml
