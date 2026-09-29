@@ -5,8 +5,9 @@
 //   3. טיפול: 1000/500 ק"מ לפני היעד או כאשר עברה שנה מהטיפול (אדמין + נהג)
 //   4. ניצול ק"מ שנתי: מדרגות 70/80/90/100% (התראה חד-פעמית לכל מדרגה, רק כשמעל קצב הזמן)
 // דיווח ק"מ חודשי מטופל ב-fleet-km-cron.
-// כל התראה נשמרת ב-fleet_alerts (dedup_key ייחודי) + fleet_n8n_events (queued) לשליחת WhatsApp ב-N8N.
+// כל התראה נשמרת ב-fleet_alerts (dedup_key ייחודי), נשלחת ב-WhatsApp לנמענים ונרשמת ב-fleet_n8n_events (sent/failed).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendWhatsApp } from "../../_shared/messaging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,7 +59,36 @@ Deno.serve(async (req) => {
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const todayIso = iso(today);
-  const results = { alerts: 0, events: 0, skippedDup: 0 };
+  const results = { alerts: 0, events: 0, sent: 0, failed: 0, skippedDup: 0 };
+
+  // Sends one WhatsApp and records it (fleet_n8n_events is the message log of the fleet module)
+  async function deliver(event: Record<string, unknown> & { driver_phone: string; message: string; payload: Record<string, unknown> }) {
+    const sent = await sendWhatsApp(event.driver_phone, event.message);
+    await supa.from("fleet_n8n_events").insert({
+      ...event,
+      status: sent.ok ? "sent" : "failed",
+      sent_at: sent.ok ? new Date().toISOString() : null,
+      payload: { ...event.payload, send_status: sent.status, ...(sent.error ? { send_error: sent.error } : {}) },
+    });
+    results.events++;
+    if (sent.ok) results.sent++; else results.failed++;
+    return sent.ok;
+  }
+
+  // user_roles and profiles have no direct relationship, so look the profiles up by user_id
+  let admins: Array<{ full_name: string | null; phone: string }> | null = null;
+  async function adminRecipients() {
+    if (!admins) {
+      const { data: roles } = await supa.from("user_roles").select("user_id").eq("role", "super_admin");
+      const ids = (roles ?? []).map((r: { user_id: string }) => r.user_id);
+      const { data: profiles } = ids.length
+        ? await supa.from("profiles").select("full_name,phone").in("user_id", ids)
+        : { data: [] };
+      admins = ((profiles ?? []) as Array<{ full_name: string | null; phone: string | null }>)
+        .filter((p): p is { full_name: string | null; phone: string } => !!p.phone);
+    }
+    return admins;
+  }
 
   // Load active vehicles + current driver assignments
   const { data: vehicles } = await supa
@@ -75,7 +105,7 @@ Deno.serve(async (req) => {
     if (a.fleet_drivers) driverByVehicle.set(a.vehicle_id, a.fleet_drivers);
   }
 
-  // Helper: create alert (dedup) + n8n event(s)
+  // Helper: create alert (dedup) + WhatsApp to admins / driver
   async function emit(opts: {
     alert_type: string; vehicle: Vehicle; driver: Driver | null;
     dedup_key: string; severity: "info" | "warn" | "danger";
@@ -93,14 +123,14 @@ Deno.serve(async (req) => {
     }
     if (existing) return; // resolved/dismissed – do not resurrect
 
-    const { error: aErr } = await supa.from("fleet_alerts").insert({
+    const { data: alert, error: aErr } = await supa.from("fleet_alerts").insert({
       alert_type: opts.alert_type, vehicle_id: opts.vehicle.id,
       driver_id: opts.driver?.id ?? null, dedup_key: opts.dedup_key,
       severity: opts.severity, title: opts.title, body: opts.body,
       due_date: opts.due_date ?? null, status: "pending",
       payload: opts.payload ?? {},
       alert_level: opts.alert_level ?? null,
-    });
+    }).select("id").single();
 
     if (aErr) { console.error("alert insert", aErr, opts.dedup_key); return; }
     results.alerts++;
@@ -111,26 +141,23 @@ Deno.serve(async (req) => {
       vehicle_plate: opts.vehicle.license_plate, vehicle_label: vehicleLabel,
       payload: opts.payload ?? {},
     };
-    // Admin recipients (all super_admins)
-    const { data: admins } = await supa.from("user_roles")
-      .select("user_id, profiles:profiles!inner(phone,full_name)")
-      .eq("role", "super_admin");
-    const adminList = (admins ?? []) as Array<{ profiles: { phone: string | null; full_name: string | null } }>;
-    for (const a of adminList) {
-      if (!a.profiles?.phone) continue;
-      await supa.from("fleet_n8n_events").insert({
-        ...baseEvent, driver_name: a.profiles.full_name, driver_phone: a.profiles.phone,
+    // Admin recipients (all super_admins with a phone)
+    let anySent = false;
+    for (const a of await adminRecipients()) {
+      anySent = (await deliver({
+        ...baseEvent, driver_name: a.full_name, driver_phone: a.phone,
         message: `[אדמין] ${opts.title}\n${opts.body}`,
-      });
-      results.events++;
+      })) || anySent;
     }
     if (opts.notifyDriver && opts.driver?.phone) {
-      await supa.from("fleet_n8n_events").insert({
+      anySent = (await deliver({
         ...baseEvent, driver_id: opts.driver.id,
         driver_name: opts.driver.full_name, driver_phone: opts.driver.phone,
         message: `${opts.title}\n${opts.body}`,
-      });
-      results.events++;
+      })) || anySent;
+    }
+    if (anySent && alert?.id) {
+      await supa.from("fleet_alerts").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", alert.id);
     }
   }
 

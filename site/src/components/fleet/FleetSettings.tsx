@@ -23,7 +23,7 @@ export function FleetSettings() {
           <TabsTrigger value="links">קישורי דיווח חיצוניים</TabsTrigger>
           <TabsTrigger value="import">ייבוא Excel</TabsTrigger>
           <TabsTrigger value="config">קונפיגורציה</TabsTrigger>
-          <TabsTrigger value="n8n">התראות N8N</TabsTrigger>
+          <TabsTrigger value="whatsapp">התראות WhatsApp</TabsTrigger>
         </TabsList>
 
         <TabsContent value="links" className="pt-4 space-y-4">
@@ -51,17 +51,17 @@ export function FleetSettings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="n8n" className="pt-4">
+        <TabsContent value="whatsapp" className="pt-4">
           <Card className="p-5">
-            <h3 className="font-semibold mb-2">התראות ל-N8N</h3>
+            <h3 className="font-semibold mb-2">התראות WhatsApp</h3>
             <p className="text-sm text-muted-foreground">
-              כל התראה נשמרת בטבלת <code>fleet_alerts</code> עם <code>dedup_key</code> ייחודי המונע כפילויות.
-              N8N יכול לבצע polling על שורות עם <code>status = 'pending'</code>, לעבד אותן ולעדכן ל-<code>sent</code>.
+              בדיקת ההתראות רצה פעם ביום. כל התראה נשמרת פעם אחת בלבד (ללא כפילויות) ונשלחת מיד ב-WhatsApp
+              ממספר החברה: למנהלי המערכת (סופר אדמין עם טלפון בפרופיל) ולנהג הרכב כשההתראה רלוונטית אליו.
+              בקשות ותזכורות לדיווח ק"מ חודשי נשלחות לנהג, ואחרי 3 תזכורות ללא דיווח — למנהלי המערכת.
             </p>
-            <div className="mt-4 text-xs bg-muted/50 rounded p-3 font-mono">
-              GET /rest/v1/fleet_alerts?status=eq.pending&order=created_at.asc<br/>
-              PATCH /rest/v1/fleet_alerts?id=eq.&lt;id&gt; · body: {'{'} "status": "sent", "sent_at": now() {'}'}
-            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              סטטוס השליחה של כל הודעה מופיע במסך דיווחי הק"מ תחת "הודעות WhatsApp אחרונות".
+            </p>
           </Card>
         </TabsContent>
       </Tabs>
@@ -99,7 +99,6 @@ function ExternalReportLinks() {
             <div className="flex-1">
               <div className="font-semibold">{l.title}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{l.desc}</div>
-              <div className="text-[10px] text-muted-foreground mt-1 font-mono">משתנה N8N: <code>{l.key}</code></div>
             </div>
           </div>
           <div className="flex gap-2">

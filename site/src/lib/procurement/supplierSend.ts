@@ -70,7 +70,7 @@ export async function uploadOrderPdf(params: {
   if (listErr) throw new Error(`pdf_verify_failed: ${listErr.message}`);
   const found = (listed || []).find((f) => f.name === filename);
   if (!found) throw new Error('pdf_verify_failed: הקובץ לא נמצא ב־Storage לאחר ההעלאה');
-  const storedSize = ((found as any).metadata?.size ?? 0) as number;
+  const storedSize = Number((found as { metadata?: { size?: number } }).metadata?.size ?? 0);
   if (!storedSize) throw new Error('pdf_verify_failed: הקובץ נשמר ריק ב־Storage');
   return { path, size: storedSize, displayFileName: params.fileName };
 }

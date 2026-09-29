@@ -1,5 +1,6 @@
 import type { Document } from "mongodb";
 import { getDb, nextSequence } from "../../db.ts";
+import { sendEmail } from "../../messaging.ts";
 import { serviceContext, type RequestContext } from "../../policies.ts";
 import { runSelect, runUpdate } from "../../postgrest/engine.ts";
 import { parseQuery } from "../../postgrest/parse.ts";
@@ -53,29 +54,39 @@ async function generateEquipmentOrderNumber(): Promise<string> {
 
 const blank = (v: unknown) => v === null || v === undefined || v === "";
 
-/** machines_notify_n8n(): POSTs machine additions / status changes to the configured n8n webhook */
-async function notifyMachinesWebhook(op: "INSERT" | "UPDATE", row: Document, old: Document | null) {
+const esc = (v: unknown) =>
+  String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Emails machine additions / status changes to the recipients in system_settings.machines_notification_emails */
+async function notifyMachineChange(op: "INSERT" | "UPDATE", row: Document, old: Document | null) {
   try {
     if (op === "UPDATE" && row.current_status === old?.current_status) return;
-    const setting = await getDb().collection("system_settings").findOne({ setting_key: "n8n_machines_webhook_url" });
-    const url = setting?.setting_value;
-    if (typeof url !== "string" || url === "" || url === "null") return;
-    await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        event: op === "INSERT" ? "machine_added" : "status_changed",
-        machine_id: row._id,
-        machine_name: row.machine_name,
-        current_location: row.current_location,
-        supplier_name: row.supplier_name,
-        current_status: row.current_status,
-        previous_status: op === "UPDATE" ? (old?.current_status ?? null) : null,
-        timestamp: new Date().toISOString(),
-      }),
+    const setting = await getDb().collection("system_settings").findOne({ setting_key: "machines_notification_emails" });
+    const value = setting?.setting_value;
+    const to = (Array.isArray(value) ? value : String(value ?? "").split(/[,;\s]+/)).map((s) => String(s).trim()).filter(Boolean);
+    if (!to.length) return;
+    const added = op === "INSERT";
+    const title = added ? `מכונה חדשה נוספה — ${row.machine_name ?? ""}` : `שינוי סטטוס מכונה — ${row.machine_name ?? ""}`;
+    const details: Array<[string, unknown]> = [
+      ["מכונה", row.machine_name],
+      ["מיקום", row.current_location],
+      ["ספק", row.supplier_name],
+      [added ? "סטטוס" : "סטטוס חדש", row.current_status],
+      ...(added ? [] : ([["סטטוס קודם", old?.current_status]] as Array<[string, unknown]>)),
+      ["זמן", new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })],
+    ];
+    const rows = details
+      .filter(([, v]) => v !== null && v !== undefined && v !== "")
+      .map(([k, v]) => `<tr><td style="padding:6px 10px;font-weight:bold;border:1px solid #e5e7eb">${esc(k)}</td><td style="padding:6px 10px;border:1px solid #e5e7eb">${esc(v)}</td></tr>`)
+      .join("");
+    await sendEmail({
+      to,
+      subject: title,
+      html: `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;text-align:right"><h2 style="color:#1f7a3f">${esc(title)}</h2><table style="border-collapse:collapse">${rows}</table><p style="color:#6b7280;font-size:12px">מעקב מכונות — קבוצת ירוק</p></div>`,
+      text: details.filter(([, v]) => v !== null && v !== undefined && v !== "").map(([k, v]) => `${k}: ${v}`).join("\n"),
     });
   } catch {
-    // never fail the write due to webhook error
+    // never fail the write due to a notification error
   }
 }
 
@@ -133,10 +144,10 @@ export function applyTriggers(tables: Record<string, TableDef>) {
     if (row.vehicle_id !== old?.vehicle_id || row.fine_date !== old?.fine_date) await attributeFine(row);
   };
 
-  // machines_notify_n8n: AFTER INSERT, AFTER UPDATE OF current_status
+  // AFTER INSERT, AFTER UPDATE OF current_status: email notification
   tables.machines.afterWrite = async (op, row, old) => {
     if (op === "DELETE" || !row) return;
-    void notifyMachinesWebhook(op, row, old);
+    void notifyMachineChange(op, row, old);
   };
 
   // set_survey_assigned_manager: BEFORE INSERT ON customer_surveys

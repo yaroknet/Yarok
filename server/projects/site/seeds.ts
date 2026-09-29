@@ -18,14 +18,21 @@ export const seeds: Seed[] = [
         description: "Days before due date to show warning",
       },
       { setting_key: "reminder_warning_km", setting_value: { maintenance: 500 }, description: "KM before due to show warning" },
-      {
-        setting_key: "procurement.n8n_webhook_url",
-        setting_value: "https://yarokcleaning.app.n8n.cloud/webhook-test/purchase-order-send",
-        description: "כתובת Webhook של n8n לשליחת הזמנות רכש לספקים",
-      },
       { setting_key: "fillout_form_101_url", setting_value: "" },
       { setting_key: "fillout_employee_kit_url", setting_value: "" },
       { setting_key: "fillout_foreign_employee_kit_url", setting_value: "" },
+    ],
+  },
+  {
+    id: "site_notification_settings",
+    table: "system_settings",
+    upsertOn: "setting_key",
+    rows: [
+      {
+        setting_key: "machines_notification_emails",
+        setting_value: "office@yaroknet.co.il, rotem@yaroknet.co.il",
+        description: "נמעני מייל להוספת מכונה ושינוי סטטוס",
+      },
     ],
   },
   {

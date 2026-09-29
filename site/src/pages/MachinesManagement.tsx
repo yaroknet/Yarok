@@ -25,7 +25,7 @@ import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import RepairsTab from '@/components/machines/RepairsTab';
 import ServiceRequestsTab from '@/components/machines/ServiceRequestsTab';
-import N8nSettingsDialog from '@/components/machines/N8nSettingsDialog';
+import MachinesNotificationsDialog from '@/components/machines/MachinesNotificationsDialog';
 import { Settings } from 'lucide-react';
 
 const STATUSES = ['פעיל', 'מושבת', 'נמכר', 'לא פעיל'];
@@ -498,8 +498,8 @@ export default function MachinesManagement() {
           <WashingMachine className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-bold">מעקב מכונות</h1>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} title="הגדרות n8n Webhook">
-            <Settings className="h-4 w-4 ml-1" /> אוטומציה n8n
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} title="נמעני התראות מייל">
+            <Settings className="h-4 w-4 ml-1" /> התראות מייל
           </Button>
         </div>
 
@@ -623,7 +623,7 @@ export default function MachinesManagement() {
 
         {historyFor && <HistoryDialog machine={historyFor} open onClose={() => setHistoryFor(null)} />}
         {adding && <AddMachineDialog open onClose={() => setAdding(false)} onSaved={load} suppliers={suppliers} />}
-        <N8nSettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
+        <MachinesNotificationsDialog open={showSettings} onClose={() => setShowSettings(false)} />
 
         <AlertDialog open={!!deleting} onOpenChange={o => !o && setDeleting(null)}>
           <AlertDialogContent dir="rtl">

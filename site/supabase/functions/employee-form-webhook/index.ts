@@ -1,4 +1,4 @@
-// Public webhook for n8n to create/upsert employee form submissions from Fillout.
+// Incoming webhook (e.g. Fillout's own webhook) that creates/upserts employee form submissions.
 // Auth: shared secret in `x-webhook-secret` header (must match EMPLOYEE_FORM_WEBHOOK_SECRET).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 

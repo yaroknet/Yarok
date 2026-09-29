@@ -222,13 +222,13 @@ export function AlertsScreen() {
   const createTest = async () => {
     const { error } = await supabase.from("fleet_alerts").insert({
       alert_type: "maintenance_due", dedup_key: `test:${Date.now()}`,
-      severity: "info", title: "התראת בדיקה", body: "נוצרה ידנית לבדיקת חיבור N8N", status: "pending",
+      severity: "info", title: "התראת בדיקה", body: "נוצרה ידנית לבדיקה", status: "pending",
     });
     if (error) toast.error(error.message);
     else { toast.success("נוצרה התראת בדיקה"); location.reload(); }
   };
   return <CrudScreen
-    title="התראות (הכנה ל-N8N)" table="fleet_alerts"
+    title="התראות" table="fleet_alerts"
     select="*, fleet_vehicles(license_plate), fleet_drivers(full_name)"
     orderBy={{ col: "created_at", asc: false }}
     searchKeys={["title", "fleet_vehicles.license_plate", "fleet_drivers.full_name"]}

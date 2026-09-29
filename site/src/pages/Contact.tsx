@@ -77,26 +77,7 @@ const Contact = () => {
       }
 
       const sanitizedData = validationResult.data;
-      
-      // Send to Make.com webhook
-      const webhookResponse = await fetch('https://hook.us2.make.com/bn07g51y98he78lsfthr7fdw4sg8bwfa', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: sanitizedData.name,
-          phone: sanitizedData.phone || '',
-          email: sanitizedData.email,
-          message: sanitizedData.message,
-        }),
-      });
 
-      if (!webhookResponse.ok) {
-        console.error('Webhook failed:', webhookResponse.status);
-      }
-
-      // Also save to Supabase
       const { error } = await supabase
         .from('contact_inquiries')
         .insert({
@@ -108,6 +89,17 @@ const Contact = () => {
         });
 
       if (error) throw error;
+
+      // Email the office (the inquiry is already saved, so a failed email is not shown to the visitor)
+      const { error: notifyError } = await supabase.functions.invoke('contact-form', {
+        body: {
+          name: sanitizedData.name,
+          phone: sanitizedData.phone || '',
+          email: sanitizedData.email,
+          message: sanitizedData.message,
+        },
+      });
+      if (notifyError) console.error('Contact notification failed:', notifyError.message);
 
       toast.success("תודה על פנייתך! ניצור איתך קשר בהקדם.");
       setFormData({ name: "", phone: "", email: "", message: "" });

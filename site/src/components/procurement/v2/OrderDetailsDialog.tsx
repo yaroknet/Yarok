@@ -16,13 +16,7 @@ import { generateSupplierPdf } from '@/lib/procurement/pdf';
 import { AddOrderLineDialog } from './AddOrderLineDialog';
 import { OrderVersionsPanel } from './OrderVersionsPanel';
 import { buildSnapshotFromLines, loadLatestVersion, createVersion } from '@/lib/procurement/versions';
-import {
-  sendOrderToN8n,
-  testN8nConnection,
-  uploadPdfForN8n,
-  type N8nDiagnosticResult,
-  type N8nSendPayload,
-} from '@/lib/procurement/n8n';
+import { sendOrderToSuppliers, uploadOrderPdf, type SupplierEventType } from '@/lib/procurement/supplierSend';
 import { diffSnapshots, summarizeDiffHebrew, updateBannerText, type OrderSnapshot } from '@/lib/procurement/diff';
 import {
   FileDown, CheckCircle2, XCircle, RotateCcw, Send, Package, Save, Undo2,
@@ -78,9 +72,6 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [versionsExist, setVersionsExist] = useState(false);
-  const [n8nTesting, setN8nTesting] = useState(false);
-  const [n8nResultOpen, setN8nResultOpen] = useState(false);
-  const [n8nResult, setN8nResult] = useState<N8nDiagnosticResult | null>(null);
 
   const canManage = adminMode;
 
@@ -132,24 +123,6 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
       order_id: orderId, actor_id: user.id, action,
       from_status: fromStatus as any, to_status: toStatus as any, details,
     });
-  };
-
-  const showN8nResult = (result: N8nDiagnosticResult) => {
-    setN8nResult(result);
-    setN8nResultOpen(true);
-  };
-
-  const handleN8nConnectionTest = async () => {
-    if (!isSuperAdmin) return;
-    setN8nTesting(true);
-    toast.loading('בודק חיבור n8n...', { id: 'n8n-test' });
-    const result = await testN8nConnection();
-    toast.dismiss('n8n-test');
-    showN8nResult(result);
-    if (result.success) toast.success('חיבור n8n הצליח');
-    else if (result.error_name === 'n8n_timeout') toast.error('הבקשה ל־n8n חרגה מזמן ההמתנה.');
-    else toast.error('חיבור n8n נכשל — ראה פירוט בחלון הבדיקה');
-    setN8nTesting(false);
   };
 
   // Per line: linked options (via internal_item_id or client mapping), and similar (by name substring, not linked)
@@ -473,9 +446,9 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
     setVersionsRefresh(x => x + 1);
   };
 
-  /** Sends the order via the server-side n8n function. Failed attempts only write activity/log rows. */
-  const sendViaN8n = async (
-    eventType: N8nSendPayload['eventType'],
+  /** Emails the order to the suppliers via the server function. Failed attempts only write activity/log rows. */
+  const sendToSuppliers = async (
+    eventType: SupplierEventType,
     opts: {
       versionNumber?: number;
       changeSummaryText?: string | null;
@@ -506,8 +479,8 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
     const supIds = [...new Set(lines.map(l => l.supplier_id).filter(Boolean))];
     if (!supIds.length) { toast.error('לא נבחר ספק להזמנה'); return { ok: 0, failed: 0 }; }
 
-    toast.loading('מפיק PDF...', { id: 'n8n-send' });
-    await logActivity('n8n_pdf_generation_started', order.status, order.status, { eventType, version: opts.versionNumber || null });
+    toast.loading('מפיק PDF...', { id: 'supplier-send' });
+    await logActivity('pdf_generation_started', order.status, order.status, { eventType, version: opts.versionNumber || null });
 
     let docs: BuiltPdf[];
     try {
@@ -520,28 +493,28 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
       if (!docs.length) throw new Error('אין שורות להזמנה');
     } catch (e: any) {
       const err = e?.message || String(e);
-      toast.dismiss('n8n-send');
+      toast.dismiss('supplier-send');
       toast.error(`לא ניתן היה להפיק את קובץ ההזמנה. ההזמנה לא נשלחה לספק. (${err})`);
-      await logActivity('n8n_send_failed', order.status, order.status, {
+      await logActivity('supplier_send_failed', order.status, order.status, {
         stage: 'pdf_generation_failed', error: err, eventType,
       });
       return { ok: 0, failed: 1 };
     }
-    await logActivity('n8n_pdf_generated', order.status, order.status, {
+    await logActivity('pdf_generated', order.status, order.status, {
       eventType, files: docs.map(d => d.fileName),
     });
 
-    toast.loading('שומר את המסמך...', { id: 'n8n-send' });
+    toast.loading('שומר את המסמך...', { id: 'supplier-send' });
     const pdfs = [];
     for (const d of docs) {
       if (!d.supplier || d.supplierId === 'unassigned') {
-        toast.dismiss('n8n-send');
+        toast.dismiss('supplier-send');
         toast.error('לא ניתן לשלוח: חסר ספק להזמנה.');
-        await logActivity('n8n_send_failed', order.status, order.status, { stage: 'supplier_not_found', supplier: d.supplierName, eventType });
+        await logActivity('supplier_send_failed', order.status, order.status, { stage: 'supplier_not_found', supplier: d.supplierName, eventType });
         return { ok: 0, failed: 1 };
       }
       try {
-        const uploaded = await uploadPdfForN8n({
+        const uploaded = await uploadOrderPdf({
           orderId,
           orderNumber: order.order_number,
           version: opts.versionNumber || order.current_version || 1,
@@ -549,16 +522,16 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
           blob: d.blob,
         });
         pdfs.push({ supplierId: d.supplierId, fileName: d.fileName, storagePath: uploaded.path });
-        await logActivity('n8n_pdf_uploaded', order.status, order.status, {
+        await logActivity('pdf_uploaded', order.status, order.status, {
           eventType, supplier: d.supplierName, path: uploaded.path, size: uploaded.size, file: d.fileName,
         });
       } catch (e: any) {
         const err = e?.message || String(e);
-        toast.dismiss('n8n-send');
+        toast.dismiss('supplier-send');
         const stage = err.startsWith('pdf_empty') ? 'pdf_empty'
           : err.startsWith('pdf_verify_failed') ? 'pdf_verify_failed'
           : 'pdf_upload_failed';
-        await logActivity('n8n_send_failed', order.status, order.status, {
+        await logActivity('supplier_send_failed', order.status, order.status, {
           stage, supplier: d.supplierName, error: err, eventType, file: d.fileName,
         });
         toast.error(`ה־PDF הופק אך שמירתו נכשלה. ההזמנה לא נשלחה. (${err})`);
@@ -566,8 +539,8 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
       }
     }
 
-    toast.loading('מכין קישור מאובטח ושולח לספק...', { id: 'n8n-send' });
-    const res = await sendOrderToN8n({
+    toast.loading('שולח לספק במייל...', { id: 'supplier-send' });
+    const res = await sendOrderToSuppliers({
       orderId,
       eventType,
       orderVersion: opts.versionNumber || order.current_version || 1,
@@ -577,7 +550,7 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
       finalStatus: opts.finalStatus || null,
     });
 
-    toast.dismiss('n8n-send');
+    toast.dismiss('supplier-send');
     if (res.success) {
       toast.success('ההזמנה נשלחה בהצלחה לספק והועברה לארכיון.');
       setVersionsRefresh(x => x + 1);
@@ -585,17 +558,17 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
       return { ok: 1, failed: 0 };
     }
 
-    const stage = res.failure_stage || (res.error_name === 'n8n_timeout' ? 'n8n_timeout' : 'n8n_request_not_started');
+    const stage = res.failure_stage || 'request_not_started';
     const message = res.error_message || res.message || stage;
     if (!res.edge_function_invoked) {
-      await logActivity('n8n_send_failed', order.status, order.status, { stage: 'n8n_request_not_started', error: message, eventType });
+      await logActivity('supplier_send_failed', order.status, order.status, { stage: 'request_not_started', error: message, eventType });
     }
     if (stage === 'supplier_email_missing') {
       toast.error('הספק אינו מכיל כתובות מייל פעילות. יש לעדכן אנשי קשר לפני שליחה.');
-    } else if (stage === 'signed_url_generation_failed' || stage === 'signed_url_verification_failed') {
-      toast.error(`ה־PDF נשמר, אך לא ניתן היה ליצור/לאמת קישור מאובטח לשליחה. (${message})`);
-    } else if (stage === 'n8n_timeout') {
-      toast.error('הבקשה ל־n8n חרגה מזמן ההמתנה.');
+    } else if (stage === 'signed_url_generation_failed') {
+      toast.error(`ה־PDF נשמר, אך לא ניתן היה ליצור קישור מאובטח לשליחה. (${message})`);
+    } else if (stage === 'email_send_failed') {
+      toast.error(`שליחת המייל לספק נכשלה: ${message}`);
     } else if (stage === 'pdf_not_found') {
       toast.error(`הקובץ לא נמצא בעת השליחה לספק. (${message})`);
     } else {
@@ -629,7 +602,7 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
     await setStatus('approved');
     await ensureOriginalVersion();
     const latest = await loadLatestVersion(orderId);
-    await sendViaN8n('order_created', {
+    await sendToSuppliers('order_created', {
       versionNumber: latest?.version_number || 1,
       versionId: latest?.id || null,
       finalStatus: 'sent_to_supplier',
@@ -641,7 +614,7 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
     const latest = await loadLatestVersion(orderId);
     if (!latest) { toast.error('אין גרסה לשליחה'); return; }
     const summaryText = latest.change_summary ? summarizeDiffHebrew(latest.change_summary as any) : null;
-    await sendViaN8n('order_updated', {
+    await sendToSuppliers('order_updated', {
       versionNumber: latest.version_number,
       versionId: latest.id,
       changeSummaryText: summaryText,
@@ -654,11 +627,11 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
     const latest = await loadLatestVersion(orderId);
     if (!latest) { toast.error('אין גרסה לשליחה'); return; }
     if (!confirm('לשלוח שוב לספק? השליחה תופיע כפעולה חדשה בהיסטוריה.')) return;
-    const eventType: N8nSendPayload['eventType'] =
+    const eventType: SupplierEventType =
       latest.document_type === 'cancellation' ? 'order_cancelled'
       : latest.document_type === 'update' ? 'order_updated'
       : 'order_created';
-    await sendViaN8n(eventType, {
+    await sendToSuppliers(eventType, {
       versionNumber: latest.version_number,
       versionId: latest.id,
       allowResend: true,
@@ -695,7 +668,7 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
     await logActivity('cancelled', order.status, 'cancelled', { reason: cancelReason });
 
     if (wasSent) {
-      // Create cancellation version + send to suppliers via n8n
+      // Create cancellation version + email it to the suppliers
       const { o, ls } = await fetchFresh();
       const ver = await nextVersionNumber();
       const snap = buildSnapshotFromLines(o, ls, allSci as any, ver);
@@ -703,7 +676,7 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
         orderId, versionNumber: ver, documentType: 'cancellation',
         snapshot: snap, changeSummary: null, userId: user?.id || null,
       });
-      await sendViaN8n('order_cancelled', {
+      await sendToSuppliers('order_cancelled', {
         versionNumber: ver,
         versionId: (v as any)?.id || null,
         cancellationReason: cancelReason,
@@ -1049,48 +1022,6 @@ export const OrderDetailsDialog = ({ orderId, open, onOpenChange, adminMode, onC
               <Button variant="outline" onClick={() => { setCancelOpen(false); setCancelReason(''); }}>סגור</Button>
               <Button variant="destructive" onClick={doCancel} disabled={loading || !cancelReason.trim()}>בטל הזמנה</Button>
             </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={n8nResultOpen} onOpenChange={setN8nResultOpen}>
-          <DialogContent dir="rtl" className="max-w-2xl">
-            <DialogHeader><DialogTitle>תוצאת בדיקת חיבור n8n</DialogTitle></DialogHeader>
-            {n8nResult && (
-              <div className="space-y-3 text-sm">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="rounded border p-2">
-                    <div className="text-xs text-muted-foreground">סטטוס</div>
-                    <Badge variant={n8nResult.success ? 'default' : 'destructive'}>{n8nResult.success ? 'הצליח' : 'נכשל'}</Badge>
-                  </div>
-                  <div className="rounded border p-2">
-                    <div className="text-xs text-muted-foreground">HTTP Status</div>
-                    <div className="font-mono">{n8nResult.http_status ?? '-'}</div>
-                  </div>
-                  <div className="rounded border p-2">
-                    <div className="text-xs text-muted-foreground">Edge Function</div>
-                    <div>{n8nResult.edge_function_invoked ? 'הופעלה' : 'לא הופעלה'}</div>
-                  </div>
-                  <div className="rounded border p-2">
-                    <div className="text-xs text-muted-foreground">משך</div>
-                    <div>{n8nResult.duration_ms != null ? `${n8nResult.duration_ms}ms` : '-'}</div>
-                  </div>
-                </div>
-                <div className="rounded border p-2">
-                  <div className="text-xs text-muted-foreground">שגיאה</div>
-                  <div className="font-mono text-xs break-words">{n8nResult.error_name || '-'}</div>
-                  <div className="text-xs break-words">{n8nResult.error_message || '-'}</div>
-                </div>
-                <div className="rounded border p-2">
-                  <div className="text-xs text-muted-foreground">Response</div>
-                  <pre className="mt-1 max-h-56 overflow-auto whitespace-pre-wrap break-words text-xs font-mono">
-                    {n8nResult.response_body || n8nResult.message || '-'}
-                  </pre>
-                </div>
-                <div className="flex justify-end">
-                  <Button variant="outline" onClick={() => setN8nResultOpen(false)}>סגור</Button>
-                </div>
-              </div>
-            )}
           </DialogContent>
         </Dialog>
 

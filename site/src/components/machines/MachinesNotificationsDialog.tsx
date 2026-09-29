@@ -19,7 +19,7 @@ export default function MachinesNotificationsDialog({ open, onClose }: { open: b
     setLoading(true);
     supabase.from('system_settings').select('setting_value').eq('setting_key', KEY).maybeSingle()
       .then(({ data }) => {
-        const v: any = data?.setting_value;
+        const v: unknown = data?.setting_value;
         setEmails(Array.isArray(v) ? v.join(', ') : typeof v === 'string' ? v : '');
         setLoading(false);
       });
@@ -32,7 +32,7 @@ export default function MachinesNotificationsDialog({ open, onClose }: { open: b
     setSaving(true);
     const clean = list.join(', ');
     const { data: exists } = await supabase.from('system_settings').select('id').eq('setting_key', KEY).maybeSingle();
-    const payload: any = { setting_key: KEY, setting_value: clean as any, description: 'נמעני מייל להוספת מכונה ושינוי סטטוס' };
+    const payload = { setting_key: KEY, setting_value: clean, description: 'נמעני מייל להוספת מכונה ושינוי סטטוס' };
     const { error } = exists
       ? await supabase.from('system_settings').update(payload).eq('id', exists.id)
       : await supabase.from('system_settings').insert(payload);

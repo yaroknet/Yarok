@@ -122,7 +122,7 @@ export function KmMonthlyManagement() {
         )}
       </Card>
 
-      <N8nEventsPanel />
+      <WhatsAppMessagesPanel />
     </div>
   );
 }
@@ -137,7 +137,13 @@ function Kpi({ label, value, tone }: { label: string; value: number; tone?: "ok"
   );
 }
 
-function N8nEventsPanel() {
+const SEND_STATUS: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
+  sent: { label: "נשלח", variant: "default" },
+  failed: { label: "נכשל", variant: "destructive" },
+  queued: { label: "לא נשלח", variant: "secondary" },
+};
+
+function WhatsAppMessagesPanel() {
   const [events, setEvents] = useState<any[]>([]);
   const load = async () => {
     const { data } = await supabase.from("fleet_n8n_events").select("*").order("created_at", { ascending: false }).limit(20);
@@ -147,17 +153,18 @@ function N8nEventsPanel() {
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold">אירועי N8N אחרונים (Webhook Queue)</h3>
+        <h3 className="font-semibold">הודעות WhatsApp אחרונות</h3>
         <Button size="sm" variant="ghost" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
       </div>
       <div className="text-xs text-muted-foreground mb-3">
-        אירועים אלו מוכנים למשיכה על ידי N8N. כל אירוע כולל טקסט מוכן, טלפון נהג וקישור פעולה.
+        הודעות שנשלחו לנהגים ולמנהלים (בקשות ותזכורות לדיווח ק"מ והתראות צי), עם סטטוס השליחה.
       </div>
       <div className="space-y-2 max-h-64 overflow-auto">
         {events.map(e => (
           <div key={e.id} className="border rounded p-2 text-xs">
             <div className="flex items-center gap-2">
               <Badge variant="outline">{e.event_type}</Badge>
+              <Badge variant={(SEND_STATUS[e.status] ?? SEND_STATUS.queued).variant}>{(SEND_STATUS[e.status] ?? SEND_STATUS.queued).label}</Badge>
               <span className="text-muted-foreground">{new Date(e.created_at).toLocaleString("he-IL")}</span>
               <span className="mr-auto">{e.driver_name} · {e.driver_phone}</span>
             </div>
