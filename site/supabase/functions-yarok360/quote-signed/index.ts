@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { emailButton, emailDetails, emailLayout, escapeHtml, sendEmail } from "../../_shared/messaging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,7 +8,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/9y338278wlfgq47s1azirsyigpb9ke34";
 
 const ACCOUNTING_RECIPIENTS = [
   "feigi@yaroknet.co.il",
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       .eq("quote_id", quoteId)
       .order("sort_order");
 
-    const url = `${SUPABASE_URL.replace(".supabase.co", ".lovable.app")}/quote/${quote.unique_token}`;
+    const url = `${Deno.env.get("PUBLIC_APP_URL") ?? ""}/employees/quote/${quote.unique_token}`;
     const totalFmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(Number(quote.total_amount || 0));
     const itemsLines = (items || []).map((it) => `  • ${it.description} | ${it.frequency || ""} | ${Number(it.price).toLocaleString("he-IL")} ₪`).join("\n");
     const materialsLines = (quote.materials && quote.materials.length > 0)
@@ -75,69 +75,76 @@ Deno.serve(async (req) => {
     const subject = `הצעת מחיר #${quote.quote_number} נחתמה — ${quote.network_name_snapshot}`;
     const body = `שלום,\n\nהצעת מחיר מספר #${quote.quote_number} נחתמה דיגיטלית.\n\n=== פרטי הלקוח ===\nרשת: ${quote.network_name_snapshot}${quote.branch_name ? "\nסניף: " + quote.branch_name : ""}\nאיש קשר: ${quote.contact_name || ""}\nטלפון: ${quote.contact_phone || ""}\nאימייל: ${quote.contact_email || ""}\n\n=== החותם ===\nשם: ${quote.signer_name || ""}\nת.ז: ${quote.signer_id_number || ""}\nתאריך חתימה: ${new Date(quote.signed_at).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })}\n\n=== שירותים ===\n${itemsLines}${materialsLines}\n\nתנאי תשלום: ${quote.payment_terms}\nסה"כ: ${totalFmt}${newClientBlock}\n\nקישור להצעה החתומה: ${url}\nחתימה: ${quote.signature_data || ""}\n\nבברכה,\nמערכת קבוצת ירוק`;
 
-    const formData = isNewClient
-      ? {
-          vat_number: quote.filled_vat_number || null,
-          billing_address: quote.filled_billing_address || null,
-          contact_person: quote.filled_contact_person || null,
-          office_phone: quote.filled_office_phone || null,
-          email: quote.filled_email || null,
-        }
-      : null;
+    // The signature is a drawn image (data URL) or a link to one
+    const signature = String(quote.signature_data || "");
+    const sigMatch = /^data:(image\/[\w+.-]+);base64,(.+)$/s.exec(signature);
+    const attachments = sigMatch
+      ? [{ filename: "signature.png", content: sigMatch[2], contentType: sigMatch[1], cid: "signature" }]
+      : [];
+    const signatureHtml = sigMatch
+      ? `<p style="margin:0 0 16px"><b>חתימה:</b><br><img src="cid:signature" alt="חתימה" style="max-width:260px;border:1px solid #e5e7eb;background:#fff"></p>`
+      : /^https?:\/\//.test(signature)
+        ? `<p style="margin:0 0 16px"><b>חתימה:</b><br><img src="${escapeHtml(signature)}" alt="חתימה" style="max-width:260px;border:1px solid #e5e7eb"></p>`
+        : "";
+    const itemsHtml = (items || []).length
+      ? `<p style="margin:0 0 6px"><b>שירותים:</b></p><ul style="margin:0 0 16px;padding-right:20px">${(items || [])
+          .map((it) => `<li>${escapeHtml(it.description)} | ${escapeHtml(it.frequency || "")} | ${Number(it.price).toLocaleString("he-IL")} ₪</li>`)
+          .join("")}</ul>`
+      : "";
+    const materialsText = (quote.materials || [])
+      .map((m: string) => (m === "other" ? "אחר: " + (quote.materials_other_text || "") : MATERIAL_LABELS[m] || m))
+      .join(", ");
 
-    // Send to all accounting recipients via Make.com (new structured format)
-    for (const recipient of ACCOUNTING_RECIPIENTS) {
-      try {
-        await fetch(MAKE_WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            trigger_type: "quote_signed",
-            is_new_client: isNewClient,
-            recipient_email: recipient,
-            client_name: quote.contact_name || quote.network_name_snapshot,
-            pdf_download_url: url,
-            form_data: formData,
-            // Legacy fields kept for backwards compatibility with existing Make scenario
-            type: "quote_signed_email",
-            subject,
-            body,
-            quote_number: quote.quote_number,
-            network_name: quote.network_name_snapshot,
-            quote_url: url,
-            signature_url: quote.signature_data,
-          }),
-        });
-      } catch (e) {
-        console.error(`Failed to notify ${recipient}:`, e);
-      }
-    }
+    const html = emailLayout(
+      `הצעת מחיר #${quote.quote_number} נחתמה`,
+      `<p style="margin:0 0 16px">שלום,<br>הצעת מחיר מספר #${quote.quote_number} נחתמה דיגיטלית.</p>
+<p style="margin:0 0 6px"><b>פרטי הלקוח</b></p>
+${emailDetails([
+  ["רשת", quote.network_name_snapshot],
+  ["סניף", quote.branch_name],
+  ["איש קשר", quote.contact_name],
+  ["טלפון", quote.contact_phone],
+  ["אימייל", quote.contact_email],
+])}
+<p style="margin:0 0 6px"><b>החותם</b></p>
+${emailDetails([
+  ["שם", quote.signer_name],
+  ["ת.ז", quote.signer_id_number],
+  ["תאריך חתימה", new Date(quote.signed_at).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })],
+])}
+${itemsHtml}
+${emailDetails([
+  ["חומרים", materialsText],
+  ["תנאי תשלום", quote.payment_terms],
+  ['סה"כ', totalFmt],
+])}
+${isNewClient
+  ? `<p style="margin:0 0 6px"><b>פרטי לקוח חדש (מילוי טופס)</b></p>${emailDetails([
+      ["ח.פ/ע.מ", quote.filled_vat_number],
+      ["כתובת חיוב", quote.filled_billing_address],
+      ["איש קשר", quote.filled_contact_person],
+      ["טלפון משרד", quote.filled_office_phone],
+      ["אימייל", quote.filled_email],
+    ])}`
+  : ""}
+${signatureHtml}
+${emailButton(url, "לצפייה בהצעה החתומה")}
+<p style="margin:0">בברכה,<br>מערכת קבוצת ירוק</p>`,
+    );
+    const text = body.replace(/\nחתימה: .*$/m, "");
 
+    const recipients = [...ACCOUNTING_RECIPIENTS];
     // Also notify the manager who created the quote, if notification_email set
-    if (quote.notification_email && !ACCOUNTING_RECIPIENTS.includes(quote.notification_email)) {
-      try {
-        await fetch(MAKE_WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            trigger_type: "quote_signed",
-            is_new_client: isNewClient,
-            recipient_email: quote.notification_email,
-            client_name: quote.contact_name || quote.network_name_snapshot,
-            pdf_download_url: url,
-            form_data: formData,
-            type: "quote_signed_email",
-            subject,
-            body,
-            quote_number: quote.quote_number,
-          }),
-        });
-      } catch (e) {
-        console.error("Failed to notify manager:", e);
-      }
+    if (quote.notification_email && !recipients.includes(quote.notification_email)) recipients.push(quote.notification_email);
+
+    const results: { recipient: string; status: number }[] = [];
+    for (const recipient of recipients) {
+      const sent = await sendEmail({ to: recipient, subject, html, text, attachments });
+      if (!sent.ok) console.error(`Failed to notify ${recipient}:`, sent.error);
+      results.push({ recipient, status: sent.status });
     }
 
-    return new Response(JSON.stringify({ ok: true, recipients: ACCOUNTING_RECIPIENTS.length }), {
+    return new Response(JSON.stringify({ ok: true, recipients: ACCOUNTING_RECIPIENTS.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

@@ -17,7 +17,7 @@ import { getTrafficLight } from "@/employees/lib/trafficLight";
 import { NewTaskDialog } from "@/employees/components/NewTaskDialog";
 import { EditTaskDialog } from "@/employees/components/EditTaskDialog";
 import { useIsMobile } from "@/employees/hooks/use-mobile";
-import { generateTaskPdf, markTasksSentToClient, sendWebhook } from "@/employees/lib/pdfReport";
+import { generateTaskPdf, markTasksSentToClient } from "@/employees/lib/pdfReport";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { differenceInDays, parseISO, format } from "date-fns";
@@ -45,9 +45,8 @@ export default function AdminTasks() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [includePhotos, setIncludePhotos] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("https://hook.us2.make.com/9y338278wlfgq47s1azirsyigpb9ke34");
-  const [sendingWebhook, setSendingWebhook] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendingReport, setSendingReport] = useState(false);
   const [editingSidesId, setEditingSidesId] = useState<string | null>(null);
   const [editingSidesValue, setEditingSidesValue] = useState("");
   const sidesInputRef = useRef<HTMLInputElement>(null);
@@ -303,33 +302,30 @@ export default function AdminTasks() {
     }
   };
 
-  const handleSendWebhook = async () => {
-    if (!webhookUrl.trim()) {
-      toast.error("יש להזין כתובת Webhook");
+  const handleSendReport = async () => {
+    if (!recipientEmail.trim()) {
+      toast.error("יש להזין אימייל נמען");
       return;
     }
-    setSendingWebhook(true);
+    setSendingReport(true);
     try {
       // 1. Generate the PDF
       toast.info("מייצר PDF...");
       const blob = await generateTaskPdf(selectedTasks, includePhotos);
 
-      // 2. Upload PDF to storage and get a public URL
-      const fileName = `webhook_reports/${format(new Date(), "yyyyMMdd_HHmmss")}_${crypto.randomUUID().slice(0, 8)}.pdf`;
+      // 2. Upload PDF to storage
+      const fileName = `task_reports/${format(new Date(), "yyyyMMdd_HHmmss")}_${crypto.randomUUID().slice(0, 8)}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from("field-media")
         .upload(fileName, blob, { contentType: "application/pdf", upsert: true });
       if (uploadError) throw new Error("שגיאה בהעלאת PDF: " + uploadError.message);
 
-      const { data: urlData } = supabase.storage
-        .from("field-media")
-        .getPublicUrl(fileName);
-      const pdfPublicUrl = urlData?.publicUrl;
-
-      if (!pdfPublicUrl) throw new Error("לא ניתן לקבל קישור ציבורי ל-PDF");
-
-      // 3. Send webhook with the PDF URL
-      await sendWebhook(webhookUrl, selectedTasks, pdfPublicUrl, recipientEmail);
+      // 3. Email the report with the PDF attached
+      const { data, error } = await supabase.functions.invoke("send-task-report", {
+        body: { taskIds: selectedTasks.map((t: any) => t.id), pdfPath: fileName, recipientEmail: recipientEmail.trim() },
+      });
+      if (error) throw error;
+      if ((data as { error?: string })?.error) throw new Error((data as { error?: string }).error);
       // 4. Save email to tasks
       if (recipientEmail.trim()) {
         await supabase
@@ -340,12 +336,12 @@ export default function AdminTasks() {
       await markTasksSentToClient(selectedTasks.map((t: any) => t.id));
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["sent-emails"] });
-      toast.success("הנתונים נשלחו בהצלחה");
-      setWebhookDialogOpen(false);
+      toast.success(`הדוח נשלח במייל ל-${recipientEmail.trim()}`);
+      setSendDialogOpen(false);
     } catch (e: any) {
       toast.error("שגיאה בשליחה: " + e.message);
     } finally {
-      setSendingWebhook(false);
+      setSendingReport(false);
     }
   };
 
@@ -479,7 +475,7 @@ export default function AdminTasks() {
                 {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                 הורד PDF
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setWebhookDialogOpen(true)} className="gap-2">
+              <Button size="sm" variant="outline" onClick={() => setSendDialogOpen(true)} className="gap-2">
                 <Send className="h-4 w-4" />
                 שלח ללקוח
               </Button>
@@ -487,8 +483,8 @@ export default function AdminTasks() {
           </Card>
         )}
 
-        {/* Webhook dialog */}
-        <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
+        {/* Send report by email */}
+        <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
           <DialogContent dir="rtl" className="max-w-md">
             <DialogHeader>
               <DialogTitle>שליחה ללקוח</DialogTitle>
@@ -512,8 +508,8 @@ export default function AdminTasks() {
                   </datalist>
                 )}
               </div>
-              <Button onClick={handleSendWebhook} disabled={sendingWebhook} className="w-full gap-2">
-                {sendingWebhook ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <Button onClick={handleSendReport} disabled={sendingReport} className="w-full gap-2">
+                {sendingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 שלח
               </Button>
             </div>

@@ -3,8 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/md8gs9li8vv3do9p9ynogsp80ksnd8yb'
+import { sendWhatsApp } from '../../_shared/messaging.ts'
 
 // Users excluded from immediate notifications
 const EXCLUDED_USER_IDS = new Set([
@@ -177,7 +176,7 @@ Deno.serve(async (req) => {
       await supabase.from('tasks').update({ whatsapp_message: whatsappMessage }).eq('id', record.id)
     }
 
-    // --- Send to ALL recipients via Make.com ---
+    // --- Send to ALL recipients via WhatsApp ---
     const results: { name: string; status: number }[] = []
 
     // Saturday: block all non-service messages entirely (no allowed users)
@@ -200,26 +199,9 @@ Deno.serve(async (req) => {
         )
       }
 
-      const webhookPayload = {
-        task_id: isTask ? record.id : null,
-        service_id: isService ? record.id : null,
-        message_type: type,
-        work_type: record.work_type || record.action_type || '',
-        status: record.status || '',
-        branch_name: branchName,
-        network_name: networkName,
-        employee_name: recipient.name,
-        employee_phone: recipient.phone,
-        whatsapp_message: personalMessage,
-      }
+      const sendResult = await sendWhatsApp(recipient.phone, personalMessage)
 
-      const makeResponse = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(webhookPayload),
-      })
-
-      results.push({ name: recipient.name, status: makeResponse.status })
+      results.push({ name: recipient.name, status: sendResult.status })
 
       await supabase.from('whatsapp_log').insert({
         task_id: isTask ? record.id : null,
@@ -228,11 +210,11 @@ Deno.serve(async (req) => {
         recipient_phone: recipient.phone,
         message_type: type,
         message_body: personalMessage,
-        webhook_status: makeResponse.status,
+        webhook_status: sendResult.status,
       })
     }
 
-    console.log('Webhook sent to recipients:', JSON.stringify(results))
+    console.log('WhatsApp sent to recipients:', JSON.stringify(results))
 
     return new Response(JSON.stringify({ success: true, recipients: results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

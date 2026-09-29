@@ -3,6 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendWhatsApp } from '../../_shared/messaging.ts'
 
 // Users excluded from immediate notifications (they get scheduled summaries)
 const EXCLUDED_USER_IDS = new Set([
@@ -158,17 +159,7 @@ async function checkAndNotifyDuplicates(supabase: any, supabaseUrl: string, serv
       const branchName = branch?.name || ''
       const msg = `⚠️ *התראת כפילות — משימות* ⚠️\n\nשלום ${ORIT_NAME},\nזוהתה כפילות אפשרית:\n\n📌 *${task.work_type}*\n📍 ${networkName} — ${branchName}\n\nקיימות ${duplicates.length + 1} משימות זהות (סניף + סוג עבודה) במערכת.\nנא לבדוק ולטפל.\n\nתודה! 🙏`
 
-      const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/md8gs9li8vv3do9p9ynogsp80ksnd8yb'
-      await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message_type: 'duplicate_alert',
-          employee_name: ORIT_NAME,
-          employee_phone: ORIT_PHONE,
-          whatsapp_message: msg,
-        }),
-      })
+      const sendResult = await sendWhatsApp(ORIT_PHONE, msg)
 
       await supabase.from('whatsapp_log').insert({
         task_id: task.id,
@@ -176,6 +167,7 @@ async function checkAndNotifyDuplicates(supabase: any, supabaseUrl: string, serv
         recipient_phone: ORIT_PHONE,
         message_type: 'duplicate_alert',
         message_body: msg,
+        webhook_status: sendResult.status,
       })
 
       console.log(`Duplicate alert sent for task ${task.id}`)
@@ -201,17 +193,7 @@ async function checkAndNotifyServiceDuplicates(supabase: any, supabaseUrl: strin
       const actionLabel = service.action_type === 'start' ? 'התחלת שירות' : service.action_type === 'update' ? 'עדכון שירות' : 'הפסקת שירות'
       const msg = `⚠️ *התראת כפילות — בקשות שירות* ⚠️\n\nשלום ${ORIT_NAME},\nזוהתה כפילות אפשרית:\n\n🔧 *${actionLabel}*\n📍 ${service.network_name} — ${service.branch_name}\n\nקיימות ${duplicates.length + 1} בקשות זהות במערכת.\nנא לבדוק ולטפל.\n\nתודה! 🙏`
 
-      const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/md8gs9li8vv3do9p9ynogsp80ksnd8yb'
-      await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message_type: 'duplicate_alert',
-          employee_name: ORIT_NAME,
-          employee_phone: ORIT_PHONE,
-          whatsapp_message: msg,
-        }),
-      })
+      const sendResult = await sendWhatsApp(ORIT_PHONE, msg)
 
       await supabase.from('whatsapp_log').insert({
         service_id: service.id,
@@ -219,6 +201,7 @@ async function checkAndNotifyServiceDuplicates(supabase: any, supabaseUrl: strin
         recipient_phone: ORIT_PHONE,
         message_type: 'duplicate_alert',
         message_body: msg,
+        webhook_status: sendResult.status,
       })
 
       console.log(`Duplicate alert sent for service ${service.id}`)

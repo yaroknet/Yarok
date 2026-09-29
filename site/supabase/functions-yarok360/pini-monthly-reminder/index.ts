@@ -1,8 +1,8 @@
 // Pini bi-monthly reminder (14th & 28th) - Castro & Super-Pharm table
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { sendWhatsApp } from "../../_shared/messaging.ts";
 
-const MAKE_WEBHOOK_URL = "https://hook.eu2.make.com/2ow8fxq7bfudr3jdf2ixm15mn7sbve9o";
 const PINI_PHONE = "0548944555";
 const PINI_NAME = "פיני";
 const SHEET_LINK = "https://docs.google.com/spreadsheets/d/1BOtLrAfBeY0L3MbuR28jhLoaoT6wXTJO/edit?gid=780937665#gid=780937665";
@@ -45,21 +45,7 @@ Deno.serve(async (req) => {
       : `שלום ${PINI_NAME} 👋\n\nתזכורת חודשית (${targetDay} לחודש):`;
     const message = `${prefix}\nנא למלא את הטבלה של *קסטרו* ו-*סופר פארם*.\n\n🔗 לינק לטבלה:\n${SHEET_LINK}\n\nתודה!`;
 
-    const payload = {
-      type: "pini_monthly_reminder",
-      recipient_name: PINI_NAME,
-      recipient_phone: PINI_PHONE,
-      message,
-      day_of_month: day,
-      sheet_url: SHEET_LINK,
-      sent_at: new Date().toISOString(),
-    };
-
-    const res = await fetch(MAKE_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await sendWhatsApp(PINI_PHONE, message);
 
     // Log
     const supabase = createClient(

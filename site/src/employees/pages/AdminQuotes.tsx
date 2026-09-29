@@ -74,14 +74,14 @@ export default function AdminQuotes() {
     toast.success("הקישור הועתק");
   }
 
-  async function sendViaMake(id: string, recipientEmail: string | null) {
+  async function sendByEmail(id: string, recipientEmail: string | null) {
     if (!recipientEmail) {
       toast.error("חסר אימייל איש קשר בהצעה");
       return;
     }
     setSendingId(id);
     try {
-      const { data, error } = await supabase.functions.invoke("send-quote-make", {
+      const { data, error } = await supabase.functions.invoke("send-quote", {
         body: { quoteId: id, recipientEmail },
       });
       if (error) throw error;
@@ -232,9 +232,9 @@ export default function AdminQuotes() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => sendViaMake(q.id, q.contact_email)}
+                                  onClick={() => sendByEmail(q.id, q.contact_email)}
                                   disabled={sendingId === q.id}
-                                  title={`שלח אוטומטית ל-${q.contact_email} דרך Make.com`}
+                                  title={`שלח את ההצעה במייל ל-${q.contact_email}`}
                                 >
                                   {sendingId === q.id ? (
                                     <Loader2 className="h-4 w-4 animate-spin ml-1" />

@@ -324,29 +324,3 @@ export async function markTasksSentToClient(taskIds: string[]) {
     .in("id", taskIds);
   if (error) throw error;
 }
-
-export async function sendWebhook(webhookUrl: string, tasks: ReportTask[], pdfUrl?: string, recipientEmail?: string) {
-  const payload = {
-    timestamp: new Date().toISOString(),
-    source: "yarok360",
-    tasks: tasks.map(t => ({
-      id: t.id,
-      network: t.branches?.networks?.name,
-      branch: t.branches?.name,
-      work_type: t.work_type,
-      sides_required: t.sides_required,
-      due_date: t.due_date,
-      status: t.status,
-    })),
-    pdf_download_url: pdfUrl || null,
-    recipient_email: recipientEmail || null,
-    total_tasks: tasks.length,
-  };
-
-  await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    mode: "no-cors",
-    body: JSON.stringify(payload),
-  });
-}

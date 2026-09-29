@@ -1,8 +1,7 @@
 // Generic custom reminder runner - reads custom_reminders table and sends matching reminders
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
-
-const MAKE_WEBHOOK_URL = "https://hook.eu2.make.com/2ow8fxq7bfudr3jdf2ixm15mn7sbve9o";
+import { sendWhatsApp } from "../../_shared/messaging.ts";
 
 interface Reminder {
   id: string;
@@ -97,18 +96,7 @@ Deno.serve(async (req) => {
       }
 
       const message = buildMessage(r, isPreSat, targetDay);
-      const res = await fetch(MAKE_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: r.reminder_key,
-          recipient_name: r.recipient_name,
-          recipient_phone: r.recipient_phone,
-          message,
-          link_url: r.link_url,
-          sent_at: new Date().toISOString(),
-        }),
-      });
+      const res = await sendWhatsApp(r.recipient_phone, message);
 
       await supabase.from("whatsapp_log").insert({
         message_type: r.reminder_key,

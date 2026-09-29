@@ -3,8 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/md8gs9li8vv3do9p9ynogsp80ksnd8yb'
+import { sendWhatsApp } from '../../_shared/messaging.ts'
 
 const ZACHI_PHONE = '0544552202'
 const ORIT_PHONE = '0503771149'
@@ -161,16 +160,7 @@ Deno.serve(async (req) => {
 
     const sendSummary = async (phone: string, name: string, message: string) => {
       if (!allowOnSaturday(phone)) { console.log('Saturday skip', name); return 0 }
-      const response = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message_type: 'summary',
-          employee_name: name,
-          employee_phone: phone,
-          whatsapp_message: message,
-        }),
-      })
+      const response = await sendWhatsApp(phone, message)
 
       await supabase.from('whatsapp_log').insert({
         recipient_name: name,

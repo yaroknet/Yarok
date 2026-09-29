@@ -3,8 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/md8gs9li8vv3do9p9ynogsp80ksnd8yb'
+import { sendWhatsApp } from '../../_shared/messaging.ts'
 
 // Users who receive WhatsApp on Saturday too (their internal messages still go via WhatsApp on Saturday)
 const SATURDAY_ALLOWED_USER_IDS = new Set([
@@ -83,30 +82,17 @@ Deno.serve(async (req) => {
       `${message.body}\n\n` +
       `נא להיכנס למערכת לצפייה ומענה.`
 
-    const webhookPayload = {
-      message_type: 'internal_message',
-      employee_name: recipientName,
-      employee_phone: recipient.phone,
-      whatsapp_message: whatsappMessage,
-      sender_name: senderName,
-      subject: message.subject || '',
-    }
-
-    const makeResponse = await fetch(MAKE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(webhookPayload),
-    })
+    const sendResult = await sendWhatsApp(recipient.phone, whatsappMessage)
 
     await supabase.from('whatsapp_log').insert({
       recipient_name: recipientName,
       recipient_phone: recipient.phone,
       message_type: 'internal_message',
       message_body: whatsappMessage,
-      webhook_status: makeResponse.status,
+      webhook_status: sendResult.status,
     })
 
-    return new Response(JSON.stringify({ success: true, status: makeResponse.status }), {
+    return new Response(JSON.stringify({ success: true, status: sendResult.status }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error: any) {

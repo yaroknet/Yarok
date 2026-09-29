@@ -3,8 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/md8gs9li8vv3do9p9ynogsp80ksnd8yb'
+import { sendWhatsApp as sendWhatsAppMessage } from '../../_shared/messaging.ts'
 
 const ORIT_USER_ID = 'd0175b71-1a13-4a93-93b2-d984738cf346'
 const ORIT_PHONE = '0503771149'
@@ -81,16 +80,7 @@ Deno.serve(async (req) => {
       const already = await wasReminderSentToday(taskId, serviceId, msgType)
       if (already) return false
 
-      const resp = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message_type: msgType,
-          employee_name: name,
-          employee_phone: phone,
-          whatsapp_message: message,
-        }),
-      })
+      const resp = await sendWhatsAppMessage(phone, message)
 
       await supabase.from('whatsapp_log').insert({
         task_id: taskId,

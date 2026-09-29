@@ -79,5 +79,7 @@ export const opsProject: Project = {
       postToFunction(opsProject, "internal-message-whatsapp", { record: e.record });
     }
   },
-  functionEnv: {},
+  functionEnv: {
+    PUBLIC_APP_URL: config.siteUrl,
+  },
 };

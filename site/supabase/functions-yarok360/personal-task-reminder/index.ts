@@ -3,8 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/md8gs9li8vv3do9p9ynogsp80ksnd8yb'
+import { sendWhatsApp } from '../../_shared/messaging.ts'
 
 // Users in the personal tasks board
 const BOARD_USERS: Record<string, string> = {
@@ -210,19 +209,7 @@ Deno.serve(async (req) => {
 
       if (assigneeProfile?.phone && allowOnSaturday(assigneeProfile.phone)) {
         const msg = `🔄 *משימה חוזרת התחדשה!*\n\n📌 *${rt.title}*\n👤 נוצרה ע"י: ${creatorName}\n\nהמשימה חזרה כפתוחה לטיפולך. 🙏`
-        await fetch(MAKE_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            task_id: null, service_id: null,
-            message_type: 'personal_recurring',
-            work_type: 'משימה אישית',
-            status: 'pending', branch_name: '', network_name: '',
-            employee_name: assignedName,
-            employee_phone: assigneeProfile.phone,
-            whatsapp_message: msg,
-          }),
-        })
+        await sendWhatsApp(assigneeProfile.phone, msg)
       }
     }
 
@@ -289,29 +276,14 @@ Deno.serve(async (req) => {
         : `⏰ *תזכורת מרוכזת — ${userTasks.length} משימות חשובות* ⏰\n\nהיי ${assignedName},\nמשימות שטרם בוצעו:\n\n${lines}\n\nאנא טפל/י בהקדם! 🙏`
 
       if (!allowOnSaturday(assignedPhone)) { console.log('Saturday skip', assignedName); continue }
-      const makeResponse = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          task_id: null,
-          service_id: null,
-          message_type: 'personal_reminder',
-          work_type: 'משימה אישית',
-          status: 'pending',
-          branch_name: '',
-          network_name: '',
-          employee_name: assignedName,
-          employee_phone: assignedPhone,
-          whatsapp_message: message,
-        }),
-      })
+      const sendResult = await sendWhatsApp(assignedPhone, message)
 
       await supabase.from('whatsapp_log').insert({
         recipient_name: assignedName,
         recipient_phone: assignedPhone,
         message_type: 'personal_reminder',
         message_body: message,
-        webhook_status: makeResponse.status,
+        webhook_status: sendResult.status,
       })
 
       remindersSent++
@@ -338,22 +310,7 @@ Deno.serve(async (req) => {
         : `📋 *חיווי מעקב מרוכז — ${createdTasks.length} משימות* 📋\n\nהיי ${creatorName},\nמשימות חשובות שהקצית וטרם בוצעו:\n\n${lines}\n\nתזכורות נשלחו גם לאחראים.`
 
       if (!creatorPhone || !allowOnSaturday(creatorPhone)) { console.log('Saturday skip creator', creatorName); continue }
-      const creatorResponse = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          task_id: null,
-          service_id: null,
-          message_type: 'personal_creator_alert',
-          work_type: 'משימה אישית',
-          status: 'pending',
-          branch_name: '',
-          network_name: '',
-          employee_name: creatorName,
-          employee_phone: creatorPhone,
-          whatsapp_message: creatorMessage,
-        }),
-      })
+      const creatorResponse = await sendWhatsApp(creatorPhone, creatorMessage)
 
       await supabase.from('whatsapp_log').insert({
         recipient_name: creatorName,
@@ -415,20 +372,7 @@ Deno.serve(async (req) => {
         : `⏰ *תזכורת מרוכזת — ${items.length} משימות* ⏰\n\nהיי ${employeeName},\n\n${lines}\n\nאנא טפל/י בהקדם! 🙏`
 
       if (!allowOnSaturday(phone)) { console.log('Saturday skip', employeeName); continue }
-      const resp = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          task_id: null, service_id: null,
-          message_type: 'team_task_reminder',
-          work_type: 'משימת עובד',
-          status: 'pending',
-          branch_name: '', network_name: '',
-          employee_name: employeeName,
-          employee_phone: phone,
-          whatsapp_message: msg,
-        }),
-      })
+      const resp = await sendWhatsApp(phone, msg)
 
       await supabase.from('whatsapp_log').insert({
         recipient_name: employeeName,

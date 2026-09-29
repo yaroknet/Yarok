@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/md8gs9li8vv3do9p9ynogsp80ksnd8yb'
+import { sendWhatsApp } from '../../_shared/messaging.ts'
 
 Deno.serve(async (_req) => {
   try {
@@ -83,11 +82,7 @@ Deno.serve(async (_req) => {
 
       // Send to assignee
       if (allowOnSaturday(profile.phone)) try {
-        const resp = await fetch(MAKE_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: profile.phone, message: assigneeMsg }),
-        })
+        const resp = await sendWhatsApp(profile.phone, assigneeMsg)
         sentMessages.push(`Sent to ${profile.full_name} (${profile.phone}): ${resp.status}`)
 
         // Log
@@ -106,11 +101,7 @@ Deno.serve(async (_req) => {
       const oritMsg = `שלום ${oritName},\n\nתזכורת: ${profile.full_name} טרם מילא/ה ${services.length} טופס/י תחילת שירות:\n\n${lines.join('\n')}\n\nתודה והמשך ערב נעים !`
 
       if (allowOnSaturday(oritPhone)) try {
-        const resp = await fetch(MAKE_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: oritPhone, message: oritMsg }),
-        })
+        const resp = await sendWhatsApp(oritPhone, oritMsg)
         sentMessages.push(`Sent to Orit (${oritPhone}): ${resp.status}`)
 
         await supabase.from('whatsapp_log').insert({
