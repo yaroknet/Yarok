@@ -6,8 +6,17 @@ let client: MongoClient | null = null;
 
 async function getClient(): Promise<MongoClient> {
   if (!client) {
-    client = new MongoClient(config.mongoUri);
-    await client.connect();
+    const c = new MongoClient(config.mongoUri);
+    try {
+      await c.connect();
+    } catch (err) {
+      console.error(
+        "[db] Could not connect to MongoDB. With MongoDB Atlas, check that Network Access allows this server " +
+          "(0.0.0.0/0 for Render), that the cluster is not paused, and that the user/password in MONGODB_URI are correct.",
+      );
+      throw err;
+    }
+    client = c;
   }
   return client;
 }
