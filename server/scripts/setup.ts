@@ -18,7 +18,7 @@ const values: Record<string, string> = {
   JWT_SECRET: (!rotate && local.JWT_SECRET) || randomBytes(48).toString("base64url"),
   WEBHOOK_DRY_RUN: local.WEBHOOK_DRY_RUN || "true",
   ENABLE_CRON: local.ENABLE_CRON || "false",
-  // Google AI Studio key for reading fleet documents (optional, free tier)
+  // Google AI Studio key for the AI assistant and fleet document reading (optional, free tier)
   GEMINI_API_KEY: local.GEMINI_API_KEY ?? "",
 };
 // Keep any other settings already in .env.local

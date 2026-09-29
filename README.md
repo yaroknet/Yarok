@@ -44,5 +44,5 @@ Employees log in at `/employees/` (menu: אזור אישי → עובדים).
 | `JWT_SECRET` | yes | Signs logins (`npm run setup` / Render generates it) |
 | `MONGODB_DB` | no | Database name, default `yarok` |
 | `WEBHOOK_DRY_RUN` | no | `false` to really send WhatsApp / n8n / email (default: only logged) |
-| `GEMINI_API_KEY` | no | Google AI Studio key (free tier). Reads driving licenses, vehicle licenses and insurance in the fleet documents; without it those details are entered by hand |
+| `GEMINI_API_KEY` | no | Google AI Studio key (free tier). Powers the AI chat assistant and reads driving licenses, vehicle licenses and insurance in the fleet documents; without it the assistant is off and those details are entered by hand |
 | `ENABLE_CRON` | no | `true` to run scheduled reminders and summaries (needs a paid Render plan; free services sleep) |

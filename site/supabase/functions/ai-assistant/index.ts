@@ -7,7 +7,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+// Google AI Studio key (free tier covers gemini-2.5-flash); OpenAI-compatible streaming endpoint
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+const AI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
@@ -220,17 +223,20 @@ serve(async (req) => {
       enhancedMessages.push(lastMessage);
     }
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      return new Response(JSON.stringify({ error: "העוזר החכם לא הוגדר (חסר GEMINI_API_KEY). פנה למנהל המערכת." }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Use vision-capable model when image is present
-    const model = imageBase64 ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash";
+    // gemini-2.5-flash handles both text and images
+    const model = GEMINI_MODEL;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(AI_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -247,15 +253,15 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "נגמר הקרדיט, אנא פנה למנהל המערכת." }), {
-          status: 402,
+      if (response.status === 402 || response.status === 403) {
+        return new Response(JSON.stringify({ error: "אין גישה לשירות ה-AI (בדוק את GEMINI_API_KEY), אנא פנה למנהל המערכת." }), {
+          status: response.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("AI gateway error");
+      console.error("Gemini error:", response.status, errorText);
+      throw new Error("Gemini error");
     }
 
     return new Response(response.body, {
