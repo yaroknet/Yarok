@@ -1,5 +1,5 @@
 // Smart Documents for the fleet module.
-//   POST { action: "analyze", document_id }        → OCR/extract via Lovable AI, save extracted_data
+//   POST { action: "analyze", document_id }        → OCR/extract via Google Gemini, save extracted_data
 //   POST { action: "apply",   document_id, data }  → apply extracted (possibly edited) data to fleet_*
 //   POST { action: "ignore",  document_id }        → mark ignored
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -7,9 +7,10 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+// Google AI Studio key (free tier covers gemini-2.5-flash)
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+const AI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 type DocRow = {
   id: string;
@@ -106,36 +107,28 @@ async function runExtraction(doc: DocRow): Promise<any> {
   const spec = schemaFor(doc.doc_type);
   const { b64, mime } = await toBase64(doc.file_url);
 
-  const isPdf = mime === "application/pdf";
-  const contentPart = isPdf
-    ? { type: "file", file: { filename: `${doc.title || "doc"}.pdf`, file_data: `data:${mime};base64,${b64}` } }
-    : { type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } };
-
   const system =
     "אתה עוזר לחילוץ נתונים ממסמכי צי רכב בישראל. ענה תמיד ב-JSON חוקי בלבד ללא טקסט מסביב. אם שדה לא זוהה בוודאות – השאר null. תאריכים תמיד בפורמט YYYY-MM-DD.";
   const user =
     `${spec.instructions}\n\nהחזר אובייקט JSON יחיד עם המפתחות: ${spec.fields.join(", ")}.\nללא הסברים, ללא markdown.`;
 
   const body = {
-    model: MODEL,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: [{ type: "text", text: user }, contentPart] },
-    ],
-    response_format: { type: "json_object" },
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: "user", parts: [{ inline_data: { mime_type: mime, data: b64 } }, { text: user }] }],
+    generationConfig: { responseMimeType: "application/json", temperature: 0 },
   };
 
   const res = await fetch(AI_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
+    headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY! },
     body: JSON.stringify(body),
   });
   const raw = await res.text();
-  if (!res.ok) throw new Error(`AI gateway ${res.status}: ${raw.slice(0, 400)}`);
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${raw.slice(0, 400)}`);
   let payload: any;
-  try { payload = JSON.parse(raw); } catch { throw new Error("gateway returned non-JSON"); }
-  const text: string = payload?.choices?.[0]?.message?.content ?? "";
-  const parsed = typeof text === "string" ? tryParseJson(text) : text;
+  try { payload = JSON.parse(raw); } catch { throw new Error("Gemini returned non-JSON"); }
+  const text: string = (payload?.candidates?.[0]?.content?.parts ?? []).map((p: any) => p?.text ?? "").join("");
+  const parsed = tryParseJson(text);
   if (!parsed || typeof parsed !== "object") throw new Error("could not parse extraction JSON");
   return parsed;
 }
@@ -283,7 +276,6 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return j({ error: "method not allowed" }, 405);
 
   try {
-    if (!LOVABLE_API_KEY) return j({ error: "missing LOVABLE_API_KEY" }, 500);
     const supa = createClient(SUPABASE_URL, SERVICE_KEY);
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
@@ -299,6 +291,7 @@ Deno.serve(async (req) => {
     if (!doc) return j({ error: "document not found" }, 404);
 
     if (action === "analyze") {
+      if (!GEMINI_API_KEY) return j({ error: "סריקה אוטומטית לא הוגדרה (חסר GEMINI_API_KEY) – ניתן להזין את הנתונים ידנית" }, 200);
       await supa.from("fleet_documents").update({ analysis_status: "analyzing" }).eq("id", doc.id);
       try {
         const extracted = await runExtraction(doc as DocRow);

@@ -21,3 +21,5 @@ services:
         value: "true"
       - key: ENABLE_CRON # scheduled reminders and summaries
         value: "false"
+      - key: GEMINI_API_KEY # optional: Google AI Studio key, reads fleet documents automatically
+        sync: false
