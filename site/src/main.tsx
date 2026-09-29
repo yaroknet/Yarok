@@ -61,7 +61,9 @@ if (container) {
   if (isEmployeesArea) {
     import("./employees/main");
   } else {
-    Promise.all([import("./App.tsx"), import("./index.css")]).then(([{ default: App }]) => {
+    // A failing sub-import in the stylesheet (e.g. a web font) must not keep the site from rendering
+    const styles = import("./index.css").catch((err) => console.warn("Stylesheet loaded with errors:", err));
+    Promise.all([import("./App.tsx"), styles]).then(([{ default: App }]) => {
       createRoot(container).render(
         <React.StrictMode>
           <App />
