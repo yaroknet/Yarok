@@ -28,5 +28,20 @@ export const config = {
   jwtExpirySeconds: Number(process.env.JWT_EXPIRY || 3600),
   enableCron: process.env.ENABLE_CRON === "true",
   enableDbTriggers: process.env.ENABLE_DB_TRIGGERS === "true",
-  webhookDryRun: (process.env.WEBHOOK_DRY_RUN ?? process.env.WHATSAPP_DRY_RUN) !== "false",
+  /** WhatsApp and email are only logged unless MESSAGING_DRY_RUN=false (WEBHOOK_DRY_RUN is the old name) */
+  messagingDryRun: (process.env.MESSAGING_DRY_RUN ?? process.env.WEBHOOK_DRY_RUN ?? process.env.WHATSAPP_DRY_RUN) !== "false",
+  greenApi: {
+    url: (process.env.GREEN_API_URL || "https://api.green-api.com").replace(/\/+$/, ""),
+    instanceId: process.env.GREEN_API_INSTANCE_ID || "",
+    token: process.env.GREEN_API_TOKEN || "",
+  },
+  smtp: {
+    host: process.env.SMTP_HOST || "",
+    port: Number(process.env.SMTP_PORT || 465),
+    /** true = TLS from the start (port 465); false = STARTTLS (port 587) */
+    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : Number(process.env.SMTP_PORT || 465) === 465,
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    from: process.env.SMTP_FROM || process.env.SMTP_USER || "",
+  },
 };

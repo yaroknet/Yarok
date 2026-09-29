@@ -5,12 +5,13 @@ import http from "node:http";
 import path from "node:path";
 import { startCron } from "./cron.ts";
 import { connectProject } from "./db.ts";
-import { installWebhookDryRun } from "./dry-run.ts";
 import { functionsRouter, loadFunctions } from "./functions/runtime.ts";
+import { logMessagingMode } from "./messaging.ts";
 import { runInProject } from "./projects/context.ts";
 import { projects } from "./projects/index.ts";
 import { attachRealtime } from "./realtime.ts";
 import { authRouter } from "./routes/auth.ts";
+import { messagingRouter } from "./routes/messaging.ts";
 import { restRouter } from "./routes/rest.ts";
 import { storageRouter } from "./routes/storage.ts";
 import type { ProjectRequest } from "./routes/wrap.ts";
@@ -35,7 +36,7 @@ const ALLOWED_HEADERS = [
 ].join(", ");
 
 async function main() {
-  installWebhookDryRun();
+  logMessagingMode();
   const loaded: string[] = [];
   for (const project of Object.values(projects)) {
     await connectProject(project);
@@ -68,6 +69,7 @@ async function main() {
   api.use("/auth/v1", authRouter);
   api.use("/storage/v1", storageRouter);
   api.use("/functions/v1", functionsRouter);
+  api.use("/messaging/v1", messagingRouter);
 
   app.use(
     "/api/:project",

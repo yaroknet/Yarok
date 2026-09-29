@@ -1,5 +1,6 @@
 # Render Blueprint: one web service that builds the website and runs the backend, which serves both
-# the website and its API (/api/...). The only value to enter is MONGODB_URI.
+# the website and its API (/api/...). The only required value is MONGODB_URI; the WhatsApp (GREEN_API_*)
+# and email (SMTP_*) values are needed to really send messages (see README).
 services:
   - type: web
     name: yarok
@@ -17,9 +18,29 @@ services:
         value: yarok
       - key: JWT_SECRET # signs logins; generated once by Render
         generateValue: true
-      - key: WEBHOOK_DRY_RUN # set to "false" to really send WhatsApp / n8n / email
+      - key: MESSAGING_DRY_RUN # set to "false" to really send WhatsApp and email (otherwise only logged)
         value: "true"
       - key: ENABLE_CRON # scheduled reminders and summaries
         value: "false"
       - key: GEMINI_API_KEY # optional: Google AI Studio key for the AI assistant and fleet document reading
+        sync: false
+      # WhatsApp (Green API): idInstance / apiTokenInstance from console.green-api.com
+      - key: GREEN_API_URL # the instance's apiUrl, e.g. https://7105.api.greenapi.com
+        value: https://api.green-api.com
+      - key: GREEN_API_INSTANCE_ID
+        sync: false
+      - key: GREEN_API_TOKEN
+        sync: false
+      # Email from the company mailbox (SMTP)
+      - key: SMTP_HOST # smtp.gmail.com (Google Workspace) or smtp.office365.com (Microsoft 365)
+        sync: false
+      - key: SMTP_PORT # 465 for Google Workspace, 587 for Microsoft 365
+        sync: false
+      - key: SMTP_SECURE # "true" for port 465, "false" for 587 (STARTTLS)
+        sync: false
+      - key: SMTP_USER # the mailbox, e.g. office@yaroknet.co.il
+        sync: false
+      - key: SMTP_PASS # App Password (Google) or the mailbox password (Microsoft 365)
+        sync: false
+      - key: SMTP_FROM # e.g. ירוק <office@yaroknet.co.il>
         sync: false

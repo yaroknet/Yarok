@@ -71,6 +71,7 @@ async function toFetchRequest(req: ExpressRequest, project: Project): Promise<Re
     if (value === undefined) continue;
     headers.set(key, Array.isArray(value) ? value.join(", ") : value);
   }
+  if (!headers.has("x-forwarded-for") && req.socket.remoteAddress) headers.set("x-forwarded-for", req.socket.remoteAddress);
   const hasBody = !["GET", "HEAD"].includes(req.method);
   const url = new URL(project.apiUrl);
   return new Request(`${url.origin}${req.originalUrl}`, {
