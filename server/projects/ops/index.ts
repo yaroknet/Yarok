@@ -1,5 +1,6 @@
 import path from "node:path";
-import { config, requiredEnv } from "../../config.ts";
+import { config, PUBLIC_API_KEY } from "../../config.ts";
+import { jwtSecret, serviceRoleKey } from "../keys.ts";
 import { serviceContext, type RequestContext } from "../../policies.ts";
 import { runInsert } from "../../postgrest/engine.ts";
 import { parseQuery } from "../../postgrest/parse.ts";
@@ -18,9 +19,9 @@ export const opsProject: Project = {
   functionsDir: path.join(config.root, "site", "supabase", "functions-yarok360"),
   dbName: config.mongoDb,
   apiUrl: `${config.apiUrl}/api/ops`,
-  jwtSecret: requiredEnv("JWT_SECRET"),
-  anonKey: requiredEnv("ANON_KEY"),
-  serviceRoleKey: requiredEnv("SERVICE_ROLE_KEY"),
+  jwtSecret: jwtSecret(),
+  anonKey: PUBLIC_API_KEY,
+  serviceRoleKey: serviceRoleKey(),
   tables,
   authUserReferences,
   policies,

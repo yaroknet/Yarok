@@ -1,5 +1,6 @@
 import type { Request } from "express";
 import jwt from "jsonwebtoken";
+import { PUBLIC_API_KEY } from "../config.ts";
 import { currentProject } from "../projects/context.ts";
 import { makeContext, type DbRole, type RequestContext } from "../policies.ts";
 import { PgError } from "../postgrest/errors.ts";
@@ -40,6 +41,7 @@ export function bearerToken(req: Request): string | null {
 
 export async function contextFromToken(token: string | null): Promise<RequestContext> {
   if (!token) throw new PgError(401, "PGRST301", "No API key found in request");
+  if (token === PUBLIC_API_KEY) return makeContext("anon", null);
   const claims = verifyJwt(token);
   if (claims.role === "service_role") return makeContext("service_role", null);
   if (claims.role === "authenticated" && claims.sub) {

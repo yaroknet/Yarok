@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { config, requiredEnv } from "../../config.ts";
+import { config, PUBLIC_API_KEY } from "../../config.ts";
+import { cronSecret, jwtSecret, serviceRoleKey } from "../keys.ts";
 import { serviceContext, type RequestContext } from "../../policies.ts";
 import { runInsert } from "../../postgrest/engine.ts";
 import { parseQuery } from "../../postgrest/parse.ts";
@@ -34,7 +35,7 @@ const noJwt = unverifiedFunctions();
 /** First folder of an object path, compared with auth.uid() by (storage.foldername(name))[1] */
 const ownFolder = (ctx: RequestContext, p: string) => !!ctx.uid && p.split("/")[0] === ctx.uid;
 const authed = (ctx: RequestContext) => ctx.role === "authenticated";
-const cronSecretHeader = (): Record<string, string> => ({ "x-cron-secret": process.env.CRON_SECRET ?? "" });
+const cronSecretHeader = (): Record<string, string> => ({ "x-cron-secret": cronSecret() });
 
 /** Website internal system (originally Supabase project bxbajdouhgafnvcfuput) */
 export const siteProject: Project = {
@@ -43,9 +44,9 @@ export const siteProject: Project = {
   functionsDir: path.join(dir, "supabase", "functions"),
   dbName: config.mongoDb,
   apiUrl: `${config.apiUrl}/api/site`,
-  jwtSecret: requiredEnv("JWT_SECRET"),
-  anonKey: requiredEnv("ANON_KEY"),
-  serviceRoleKey: requiredEnv("SERVICE_ROLE_KEY"),
+  jwtSecret: jwtSecret(),
+  anonKey: PUBLIC_API_KEY,
+  serviceRoleKey: serviceRoleKey(),
   tables,
   authUserReferences,
   policies,
@@ -120,21 +121,11 @@ export const siteProject: Project = {
   cronJobs: [
     { fn: "fleet-alerts-cron", schedule: "0 5 * * *", timezone: "UTC", headers: cronSecretHeader },
     { fn: "fleet-km-cron", schedule: "30 5 * * *", timezone: "UTC", headers: cronSecretHeader },
-    ...(process.env.EXTERNAL_SUPABASE_URL
-      ? [
-          {
-            fn: "sync-to-external-supabase",
-            schedule: "0 * * * *",
-            timezone: "UTC",
-            headers: () => ({ Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` }),
-          },
-        ]
-      : []),
   ],
   rpc,
   verifyJwt: (fn) => !noJwt.has(fn),
   functionEnv: {
-    CRON_SECRET: process.env.CRON_SECRET ?? "",
+    CRON_SECRET: cronSecret(),
     PUBLIC_APP_URL: config.siteUrl,
   },
 };

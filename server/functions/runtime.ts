@@ -4,6 +4,7 @@ import { register } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { bearerToken, verifyJwt } from "../auth/tokens.ts";
+import { PUBLIC_API_KEY } from "../config.ts";
 import { maybeCurrentProject, runInProject, setFallbackProject, type Project } from "../projects/context.ts";
 import type { ProjectRequest } from "../routes/wrap.ts";
 
@@ -93,7 +94,7 @@ functionsRouter.all("/:name", (req: ExpressRequest, res: ExpressResponse) => {
       const token = bearerToken(req);
       try {
         if (!token) throw new Error("missing");
-        verifyJwt(token);
+        if (token !== PUBLIC_API_KEY) verifyJwt(token);
       } catch {
         return res.status(401).json({ code: 401, message: "Invalid JWT" });
       }

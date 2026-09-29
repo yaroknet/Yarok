@@ -20,6 +20,7 @@ import { BranchCombobox } from "@/components/audits/BranchCombobox";
 import { RatingPills } from "@/components/audits/RatingPills";
 import { SignaturePad } from "@/components/audits/SignaturePad";
 import { cn } from "@/lib/utils";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/integrations/supabase/client";
 
 const PUBLIC_AUDIT_BRANCH_FALLBACK: string[] = [
   "סופר פארם בילו סנטר",
@@ -58,8 +59,8 @@ const PUBLIC_AUDIT_BRANCH_FALLBACK: string[] = [
 const PUBLIC_AUDIT_BRANCHES = Array.from(new Set([...PUBLIC_AUDIT_BRANCH_FALLBACK, ...SUPER_PHARM_BRANCHES]));
 
 const createPublicAuditClient = () => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = SUPABASE_URL;
+  const key = SUPABASE_PUBLISHABLE_KEY;
 
   if (!url || !key) return null;
 

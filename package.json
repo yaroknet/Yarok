@@ -14,7 +14,6 @@
     "build": "npm --prefix site run build",
     "start": "tsx server/index.ts",
     "setup": "tsx server/scripts/setup.ts",
-    "keys:production": "tsx server/scripts/production-keys.ts",
     "create-user": "tsx server/scripts/create-user.ts",
     "test:site": "tsx server/scripts/smoke-test-site.ts",
     "test:employees": "tsx server/scripts/smoke-test.ts",

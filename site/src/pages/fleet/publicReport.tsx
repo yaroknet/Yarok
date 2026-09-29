@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, CheckCircle2, Camera, AlertCircle, Car } from "lucide-react";
 import { toast } from "sonner";
 
-const FN_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/fleet-public-report`;
-const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const FN_URL = `${SUPABASE_URL}/functions/v1/fleet-public-report`;
+const ANON = SUPABASE_PUBLISHABLE_KEY;
 const HDR = { apikey: ANON, Authorization: `Bearer ${ANON}` };
 
 export function usePublicReport() {

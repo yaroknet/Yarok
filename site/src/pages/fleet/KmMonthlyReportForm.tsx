@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,9 +23,8 @@ export default function KmMonthlyReportForm() {
 
   const load = async () => {
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/fleet-km-public?token=${token}`, {
+      const anon = SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/fleet-km-public?token=${token}`, {
         headers: { apikey: anon, Authorization: `Bearer ${anon}` },
       });
       const j = await res.json();
@@ -55,9 +54,8 @@ export default function KmMonthlyReportForm() {
     if (!photoUrl) { toast.error("חובה לצלם את מד הק\"מ"); return; }
     setSaving(true);
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/fleet-km-public`, {
+      const anon = SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/fleet-km-public`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: anon, Authorization: `Bearer ${anon}` },
         body: JSON.stringify({ token, current_km: Number(km), odometer_image: photoUrl, note, submitted_by_name: name }),

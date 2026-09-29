@@ -1,15 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-// Prevent search engines from indexing the lovable.app subdomain
-// Only the custom domain (yaroknet.co.il) should be indexed
-if (window.location.hostname.includes('lovable.app')) {
-  const noindex = document.createElement('meta');
-  noindex.name = 'robots';
-  noindex.content = 'noindex, nofollow';
-  document.head.appendChild(noindex);
-}
-
 // Register Service Worker for offline support (production only)
 if ("serviceWorker" in navigator) {
   if (import.meta.env.PROD) {

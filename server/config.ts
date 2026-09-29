@@ -13,12 +13,15 @@ export function requiredEnv(name: string): string {
   return value;
 }
 
+/** Every request without a login uses this public API key (like Supabase's anon key, but fixed and not secret) */
+export const PUBLIC_API_KEY = "public";
+
 export const config = {
   root,
   port,
   apiUrl: process.env.API_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`,
   /** Public origin of the website (Vite dev server in development) */
-  siteUrl: process.env.SITE_URL || "http://localhost:8090",
+  siteUrl: process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:8090",
   mongoUri: process.env.MONGODB_URI || "mongodb://127.0.0.1:27017",
   /** One database for the whole platform */
   mongoDb: process.env.MONGODB_DB || "yarok",

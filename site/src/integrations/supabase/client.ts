@@ -2,8 +2,10 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// The API is served by the backend on the same site (in development Vite forwards /api to it)
+export const SUPABASE_URL = `${window.location.origin}/api/site`;
+// Fixed public key for requests without a login; access rules are enforced by the backend
+export const SUPABASE_PUBLISHABLE_KEY = "public";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

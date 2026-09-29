@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { SUPABASE_URL, supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Message {
@@ -100,7 +100,7 @@ export const AIChatWidget = () => {
   };
 
   const streamChat = useCallback(async (userMessages: Message[], action?: string, imageData?: { base64: string; mimeType: string }) => {
-    const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
+    const CHAT_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 
     // Get the current session token for authentication
     const { data: { session } } = await supabase.auth.getSession();

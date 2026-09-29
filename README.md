@@ -5,50 +5,43 @@ The Yarok website with its employees area (Yarok 360) and the backend, on MongoD
 ```
 site/     Frontend (React + Vite): public website, client portal, platform modules,
           and the employees area (Yarok 360) under src/employees -> /employees
-  supabase/functions/           Edge functions of the platform
-  supabase/functions-yarok360/  Edge functions of the employees area
+  supabase/functions/           Server functions of the platform
+  supabase/functions-yarok360/  Server functions of the employees area
 server/   Backend (Node + Express + MongoDB): database API, login, file storage,
-          realtime, edge-function runtime, scheduled jobs
+          realtime, server functions, scheduled jobs; also serves the built website
 ```
 
-The frontend talks to the backend with `@supabase/supabase-js`; the backend implements the same
-HTTP API on top of MongoDB (`/api/site/...` for the platform, `/api/ops/...` for the employees area).
-Both share one database and one login.
+The frontend talks to the backend with the `@supabase/supabase-js` client library; the backend implements
+that API on top of MongoDB under `/api/site` (platform) and `/api/ops` (employees area). One database, one login.
 
 ## Run locally
 
-Requires Node 22+ and MongoDB running on `mongodb://127.0.0.1:27017`.
+Requires Node 22+ and MongoDB on `mongodb://127.0.0.1:27017`.
 
 ```bash
 npm run install:all
-npm run setup        # creates .env.local (backend secrets) and site/.env
+npm run setup        # creates .env.local
 npm run create-user -- --project site --email you@example.com --password <password> --name "Your Name" --role super_admin
-npm run dev          # backend on :3001, website on http://localhost:8090
+npm run dev          # website on http://localhost:8090 (backend on :3001)
 ```
 
 Employees log in at `/employees/` (menu: אזור אישי → עובדים).
 
 ## Deploy to Render
 
-The repo contains a Blueprint (`render.yaml`) with two services:
+`render.yaml` defines one web service that builds the website and runs the backend.
 
-| Service | Type | What it runs |
+1. Create a MongoDB Atlas cluster and copy its connection string (Network Access: allow `0.0.0.0/0`).
+2. In Render: **New → Blueprint**, pick this repository, and paste the connection string as `MONGODB_URI`.
+3. After the first deploy, create the first admin from the service's **Shell** tab:
+   `npm run create-user -- --project site --email ... --password ... --name "..." --role super_admin`
+
+## Settings (`.env.local` locally, Environment in Render)
+
+| Setting | Needed | Purpose |
 |---|---|---|
-| `yarok-api` | Web Service (Node) | `server/` — `npm install`, `npm start` |
-| `yarok-site` | Static Site | `site/` — `npm install && npm run build`, publishes `site/dist` |
-
-1. Create a MongoDB Atlas cluster and copy its connection string (allow access from anywhere,
-   or from Render's outbound IPs).
-2. Run `npm run keys:production` locally to generate `JWT_SECRET`, `ANON_KEY` and `SERVICE_ROLE_KEY`.
-3. In Render: **New → Blueprint**, pick this repository, and fill in the values:
-   - `yarok-api`: `MONGODB_URI`, `JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY`,
-     `SITE_URL` = the `yarok-site` URL.
-   - `yarok-site`: `VITE_SUPABASE_URL` = `<yarok-api URL>/api/site`,
-     `VITE_EMPLOYEES_API_URL` = `<yarok-api URL>/api/ops`,
-     `VITE_SUPABASE_PUBLISHABLE_KEY` = the same `ANON_KEY`.
-4. After the first deploy, redeploy `yarok-site` if you changed any `VITE_*` value (they are baked in at build time).
-5. Create the first admin: in the `yarok-api` Shell, run
-   `npm run create-user -- --project site --email ... --password ... --name "..." --role super_admin`.
-
-WhatsApp / n8n / email webhooks stay in dry-run mode until `WEBHOOK_DRY_RUN=false`; scheduled jobs run
-only with `ENABLE_CRON=true` (on Render's free plan the service sleeps when idle, so use a paid plan for jobs).
+| `MONGODB_URI` | yes | MongoDB connection string |
+| `JWT_SECRET` | yes | Signs logins (`npm run setup` / Render generates it) |
+| `MONGODB_DB` | no | Database name, default `yarok` |
+| `WEBHOOK_DRY_RUN` | no | `false` to really send WhatsApp / n8n / email (default: only logged) |
+| `ENABLE_CRON` | no | `true` to run scheduled reminders and summaries (needs a paid Render plan; free services sleep) |
