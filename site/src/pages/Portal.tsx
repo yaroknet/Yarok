@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Car, Settings, User, ClipboardList, Users, Wallet, ShoppingCart, Package } from 'lucide-react';
+import { Car, Settings, User, ClipboardList, Users, Wallet, ShoppingCart, Package, Orbit } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +32,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Wallet: Wallet,
   ShoppingCart: ShoppingCart,
   Package: Package,
+  Orbit: Orbit,
 };
 
 // Map module names to the hook's module names
@@ -100,6 +101,12 @@ const Portal = () => {
     const hookModuleName = moduleNameMap[module.name];
     if (hookModuleName) {
       await markModuleAsViewed(hookModuleName);
+    }
+
+    // Yarok 360 is a separate app under /employees that reuses this login
+    if (module.route.startsWith('/employees')) {
+      window.location.assign(module.route);
+      return;
     }
 
     navigate(module.route);

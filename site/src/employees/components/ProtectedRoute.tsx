@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/employees/contexts/AuthContext";
+import { NoAccess } from "@/employees/components/NoAccess";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles, allowedUserIds }: ProtectedRouteProps) {
-  const { user, roles, loading } = useAuth();
+  const { user, roles, loading, canEnter360 } = useAuth();
 
   if (loading) {
     return (
@@ -23,6 +24,10 @@ export function ProtectedRoute({ children, allowedRoles, allowedUserIds }: Prote
 
   if (!user) {
     return <Navigate to="/" replace />;
+  }
+
+  if (!canEnter360) {
+    return <NoAccess />;
   }
 
   if (allowedRoles && !roles.some((r) => allowedRoles.includes(r))) {

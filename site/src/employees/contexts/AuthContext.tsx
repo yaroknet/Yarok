@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/employees/integrations/supabase/client";
 import type { Database } from "@/employees/integrations/supabase/types";
@@ -14,6 +14,9 @@ interface AuthContextType {
   isCustomer: boolean;
   isContractor: boolean;
   isContractorWorker: boolean;
+  /** Whether the user may enter Yarok 360 (the "360" module in the portal admin screen) */
+  canEnter360: boolean;
+  /** True until the session and, for a signed-in user, their roles and 360 access are known */
   loading: boolean;
   signIn: (identifier: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -25,41 +28,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [canEnter360, setCanEnter360] = useState(false);
   const [loading, setLoading] = useState(true);
+  // User whose roles and access are loaded; token refreshes for the same user keep them
+  const loadedUserId = useRef<string | null>(null);
 
-  const fetchRoles = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    if (data) {
-      setRoles(data.map((r: any) => r.role as AppRole));
+  const applySession = async (session: Session | null) => {
+    setSession(session);
+    const userId = session?.user?.id ?? null;
+    if (userId === loadedUserId.current) {
+      // Same user (a token refresh, or the second of the two startup events): roles are loaded or loading
+      setUser(session?.user ?? null);
+      if (!userId) setLoading(false);
+      return;
     }
+    loadedUserId.current = userId;
+    if (!userId) {
+      setUser(null);
+      setRoles([]);
+      setCanEnter360(false);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setUser(session!.user);
+    const [{ data: roleRows }, { data: allowed }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", userId),
+      supabase.rpc("can_enter_yarok360"),
+    ]);
+    if (loadedUserId.current !== userId) return;
+    setRoles((roleRows ?? []).map((r: any) => r.role as AppRole));
+    setCanEnter360(allowed === true);
+    setLoading(false);
   };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          // Use setTimeout to avoid Supabase client deadlock
-          setTimeout(() => fetchRoles(session.user.id), 0);
-        } else {
-          setRoles([]);
-        }
-        setLoading(false);
+      (_event, session) => {
+        // Use setTimeout to avoid Supabase client deadlock
+        setTimeout(() => applySession(session), 0);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRoles(session.user.id);
-      }
-      setLoading(false);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => applySession(session));
 
     return () => subscription.unsubscribe();
   }, []);
@@ -97,7 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    loadedUserId.current = null;
     setRoles([]);
+    setCanEnter360(false);
   };
 
   const isAdmin = roles.includes("super_admin") || roles.includes("office_manager");
@@ -107,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isContractorWorker = roles.includes("contractor_worker");
 
   return (
-    <AuthContext.Provider value={{ session, user, roles, isAdmin, isTeamLeader, isCustomer, isContractor, isContractorWorker, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, roles, isAdmin, isTeamLeader, isCustomer, isContractor, isContractorWorker, canEnter360, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

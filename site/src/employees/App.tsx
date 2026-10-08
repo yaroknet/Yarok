@@ -25,6 +25,7 @@ const AdminPersonalTasks = lazy(() => import("./pages/AdminPersonalTasks"));
 const AdminQuotes = lazy(() => import("./pages/AdminQuotes"));
 const AdminPriceList = lazy(() => import("./pages/AdminPriceList"));
 const PublicQuoteView = lazy(() => import("./pages/PublicQuoteView"));
+const EnterPage = lazy(() => import("./pages/EnterPage"));
 
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
           <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
             <Routes>
               <Route path="/" element={<LoginPage />} />
+              <Route path="/enter" element={<EnterPage />} />
               <Route path="/admin" element={
                 <ProtectedRoute allowedRoles={["super_admin", "office_manager"]}>
                   <AdminDashboard />

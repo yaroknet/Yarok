@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from "react";
-import { LogOut, Settings, User } from "lucide-react";
+import { LayoutGrid, LogOut, Settings, User } from "lucide-react";
 import { Button } from "@/employees/components/ui/button";
 import { useAuth } from "@/employees/contexts/AuthContext";
 import { useTeamTasks, TeamTask } from "@/employees/hooks/useTeamTasks";
@@ -107,6 +107,15 @@ export default function TeamLeaderView() {
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-foreground gap-2"
+            onClick={() => window.location.assign("/portal")}
+          >
+            <LayoutGrid className="h-4 w-4" />
+            אזור אישי
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground gap-2"
             onClick={() => signOut()}
           >
             <LogOut className="h-4 w-4" />
@@ -132,6 +141,15 @@ export default function TeamLeaderView() {
                   שלום, {firstName}
                 </span>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground h-9 w-9"
+                onClick={() => window.location.assign("/portal")}
+                aria-label="אזור אישי"
+              >
+                <LayoutGrid className="h-4.5 w-4.5" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"

@@ -44,7 +44,7 @@ async function main() {
   const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", adminId);
   check("roles readable", roles?.some((r) => r.role === "super_admin"), roles);
   const { data: modules } = await admin.from("modules").select("name, route").eq("is_active", true).order("sort_order");
-  check("portal modules seeded (field_journal inactive)", modules?.length === 7 && !modules.some((m) => m.name === "field_journal"), modules);
+  check("portal modules seeded (field_journal inactive, 360 present)", modules?.length === 8 && !modules.some((m) => m.name === "field_journal") && modules.some((m) => m.name === "yarok360" && m.route === "/employees/enter"), modules);
   const { data: profile } = await admin.from("profiles").select("full_name, procurement_token").eq("user_id", adminId).single();
   check("profile created by handle_new_user", !!profile?.full_name, profile);
 

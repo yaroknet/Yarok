@@ -1,4 +1,9 @@
+import { getDb } from "../../db.ts";
+import { serviceContext } from "../../policies.ts";
+import { runInsert } from "../../postgrest/engine.ts";
+import { parseQuery } from "../../postgrest/parse.ts";
 import type { Seed } from "../context.ts";
+import { YAROK360_MODULE, YAROK360_ROLES } from "../yarok360.ts";
 
 /**
  * Rows the original site database seeded, with its later updates already applied.
@@ -65,6 +70,41 @@ export const seeds: Seed[] = [
         sort_order: 70,
       },
     ],
+  },
+  {
+    id: "site_module_yarok360",
+    table: "modules",
+    upsertOn: "name",
+    rows: [
+      {
+        name: YAROK360_MODULE,
+        display_name: "360",
+        description: "Yarok 360 - ניהול תפעול ושטח",
+        icon: "Orbit",
+        route: "/employees/enter",
+        is_active: true,
+        sort_order: 2,
+      },
+    ],
+  },
+  {
+    // Everyone with a Yarok 360 role used it before it moved behind the portal's "360" module; keep their access
+    id: "site_yarok360_existing_users",
+    run: async () => {
+      const mod = await getDb().collection("modules").findOne({ name: YAROK360_MODULE });
+      if (!mod) return;
+      const userIds = await getDb().collection("user_roles").distinct("user_id", { role: { $in: YAROK360_ROLES } });
+      for (const userId of userIds) {
+        if (await getDb().collection("user_module_permissions").findOne({ user_id: userId, module_id: mod._id })) continue;
+        await runInsert(
+          "user_module_permissions",
+          [{ user_id: userId, module_id: mod._id, has_access: true, data_scope: "global" }],
+          parseQuery(new URLSearchParams()),
+          serviceContext(),
+          { returning: false },
+        );
+      }
+    },
   },
   {
     id: "site_survey_templates",

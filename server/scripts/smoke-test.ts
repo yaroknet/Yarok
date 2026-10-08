@@ -7,6 +7,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parseArgs } from "node:util";
 import "../config.ts";
 import { opsProject } from "../projects/ops/index.ts";
+import { siteProject } from "../projects/site/index.ts";
 
 const { values } = parseArgs({ options: { email: { type: "string" }, password: { type: "string" } } });
 if (!values.email || !values.password) {
@@ -19,6 +20,7 @@ const anonKey = opsProject.anonKey;
 const newClient = () =>
   createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const service = createClient(url, opsProject.serviceRoleKey, { auth: { persistSession: false } });
+const siteService = createClient(siteProject.apiUrl, siteProject.serviceRoleKey, { auth: { persistSession: false } });
 
 let failures = 0;
 function check(name: string, ok: unknown, detail?: unknown) {
@@ -129,6 +131,27 @@ async function main() {
   const leader = newClient();
   const tlLogin = await leader.auth.signInWithPassword({ email: tlEmail, password: "Leader456!" });
   check("team leader signs in with new password", !!tlLogin.data.session, tlLogin.error);
+
+  console.log("Entry from the portal's 360 button");
+  const adminEnter = await admin.rpc("can_enter_yarok360");
+  check("super admin may enter 360", adminEnter.data === true, adminEnter);
+  const leaderEnter = await leader.rpc("can_enter_yarok360");
+  check("new team leader without the 360 module may not enter", leaderEnter.data === false, leaderEnter);
+  const omEmail = `${tag}-om@yarok.local`;
+  const om = await admin.functions.invoke("create-user", {
+    body: { email: omEmail, password: "Office123!", full_name: `${tag} מנהל משרד`, role: "office_manager" },
+  });
+  const omId = om.data?.user_id as string;
+  cleanup.push(() => service.auth.admin.deleteUser(omId));
+  const office = newClient();
+  await office.auth.signInWithPassword({ email: omEmail, password: "Office123!" });
+  const omBefore = await office.rpc("can_enter_yarok360");
+  check("office manager without the 360 module may not enter", omBefore.data === false, omBefore);
+  const { data: mod360 } = await siteService.from("modules").select("id").eq("name", "yarok360").single();
+  const grant = await siteService.from("user_module_permissions").insert({ user_id: omId, module_id: mod360?.id, has_access: true });
+  cleanup.push(() => siteService.from("user_module_permissions").delete().eq("user_id", omId));
+  const omAfter = await office.rpc("can_enter_yarok360");
+  check("office manager with the 360 module may enter", !grant.error && omAfter.data === true, grant.error ?? omAfter);
 
   console.log("Row level security");
   const before = await leader.from("tasks").select("id").eq("id", task!.id);

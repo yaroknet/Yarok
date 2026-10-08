@@ -53,9 +53,6 @@ const mainItems = [
   { title: "הגדרות", url: "/admin/settings", icon: Settings },
 ];
 
-/** Roles of the platform's other modules (fleet, procurement, complaints, ...) at /portal */
-const PLATFORM_ROLES = ["super_admin", "manager", "driver"];
-
 const bottomItems = [
   { title: "ניהול משתמשים", url: "/admin/team", icon: Users },
 ];
@@ -64,7 +61,7 @@ export function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { signOut, user, roles } = useAuth();
+  const { signOut, user } = useAuth();
   
 
   const { data: unreadCount = 0, refetch } = useQuery({
@@ -151,16 +148,14 @@ export function AdminSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
-          {(roles as string[]).some((r) => PLATFORM_ROLES.includes(r)) && (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="/portal">
-                  <LayoutGrid className="h-4 w-4" />
-                  {!collapsed && <span>מערכות נוספות</span>}
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <a href="/portal">
+                <LayoutGrid className="h-4 w-4" />
+                {!collapsed && <span>חזרה לאזור האישי</span>}
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => signOut()}>
               <LogOut className="h-4 w-4" />

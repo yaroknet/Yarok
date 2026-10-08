@@ -1159,6 +1159,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_enter_yarok360: { Args: never; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

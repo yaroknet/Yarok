@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/employees/components/ui/button";
 import { Input } from "@/employees/components/ui/input";
 import { Label } from "@/employees/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/employees/components/ui/card";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/employees/contexts/AuthContext";
 import { useToast } from "@/employees/hooks/use-toast";
 
@@ -11,26 +10,13 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, user, roles, isAdmin, isTeamLeader, isCustomer, isContractor, isContractorWorker } = useAuth();
-  const navigate = useNavigate();
+  const { signIn, user, loading } = useAuth();
   const { toast } = useToast();
 
-  if (user && roles.length > 0) {
-    if (isAdmin) {
-      navigate("/admin", { replace: true });
-    } else if (isTeamLeader) {
-      navigate("/team", { replace: true });
-    } else if (isContractor) {
-      navigate("/team", { replace: true });
-    } else if (isContractorWorker) {
-      navigate("/team", { replace: true });
-    } else if (isCustomer) {
-      navigate("/customer", { replace: true });
-    } else {
-      // Platform-only employees (e.g. drivers, managers) continue to the platform portal
-      window.location.replace("/portal");
-    }
-  }
+  // Everyone continues to the portal hub, where Yarok 360 is one of the modules
+  useEffect(() => {
+    if (!loading && user) window.location.replace("/portal");
+  }, [loading, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

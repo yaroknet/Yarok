@@ -6,6 +6,7 @@ import { runInsert } from "../../postgrest/engine.ts";
 import { parseQuery } from "../../postgrest/parse.ts";
 import { postToFunction } from "../../triggers.ts";
 import type { Project } from "../context.ts";
+import { canEnterYarok360 } from "../yarok360.ts";
 import { loadRoles, policies } from "./policies.ts";
 import { authUserReferences, tables } from "./schema.ts";
 import { seeds } from "./seeds.ts";
@@ -64,7 +65,9 @@ export const opsProject: Project = {
     { fn: "whatsapp-weekly-ilan", schedule: "0 18 * * 4" },
     { fn: "whatsapp-shaina-vitrines", schedule: "0 10 * * 0", biweekly: true },
   ],
-  rpc: {},
+  rpc: {
+    can_enter_yarok360: async (_args, ctx) => canEnterYarok360(ctx),
+  },
   verifyJwt: () => true,
   // notify_task_changed / notify_service_changed / notify_internal_message_whatsapp (disabled in the last migration)
   onChange: (e) => {

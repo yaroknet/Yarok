@@ -11,12 +11,15 @@ export interface BucketConfig {
   canDelete?: (ctx: RequestContext, path: string) => boolean | Promise<boolean>;
 }
 
-export interface Seed {
-  id: string;
-  table: string;
-  rows: Record<string, unknown>[];
-  upsertOn?: string;
-}
+export type Seed =
+  | {
+      id: string;
+      table: string;
+      rows: Record<string, unknown>[];
+      upsertOn?: string;
+    }
+  /** A one-time data change that depends on what is already in the database */
+  | { id: string; run: () => Promise<void> };
 
 export interface CronJob {
   fn: string;
