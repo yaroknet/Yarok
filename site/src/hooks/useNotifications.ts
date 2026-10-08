@@ -169,8 +169,10 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!user) return;
 
+    // Several components use this hook at once; each needs its own channel, since
+    // supabase.channel() returns the already-subscribed one for a repeated name
     const channel = supabase
-      .channel('notifications-changes')
+      .channel(`notifications-changes-${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         {
