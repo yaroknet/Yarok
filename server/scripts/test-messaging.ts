@@ -375,7 +375,7 @@ async function main() {
     name: "גולש בדיקה", phone: "050-1112233", email: "visitor@example.com", message: "אשמח להצעת מחיר",
   });
   const cm = mails.at(-1);
-  check("contact-form -> office, reply-to the visitor", contact.data?.ok && mails.length === mailsBefore + 1 && mailTo(cm!).join() === "office@yaroknet.co.il" && cm!.replyTo?.value[0]?.address === "visitor@example.com" && String(cm!.html).includes("אשמח להצעת מחיר"), { contact, to: cm && mailTo(cm) });
+  check("contact-form -> office, reply-to the visitor", contact.data?.ok && mails.length === mailsBefore + 1 && mailTo(cm!).join() === "maya@yaroknet.co.il" && cm!.replyTo?.value[0]?.address === "visitor@example.com" && String(cm!.html).includes("אשמח להצעת מחיר"), { contact, to: cm && mailTo(cm) });
 
   const reportPath = `task_reports/test-${Date.now()}.pdf`;
   await admin.storage.from("field-media").upload(reportPath, pdfBytes, { contentType: "application/pdf" });

@@ -53,7 +53,7 @@ Employees log in at `/employees/` (menu: אזור אישי → עובדים).
 | `SMTP_USER` | for email | The company mailbox, e.g. `office@yaroknet.co.il` |
 | `SMTP_PASS` | for email | Google: an App Password; Microsoft 365: the mailbox password |
 | `SMTP_FROM` | for email | Sender shown to recipients, e.g. `ירוק <office@yaroknet.co.il>` (default: `SMTP_USER`) |
-| `CONTACT_FORM_TO` | no | Where website contact-form inquiries are emailed (default `office@yaroknet.co.il`) |
+| `CONTACT_FORM_TO` | no | Where website contact-form inquiries are emailed (default `maya@yaroknet.co.il`) |
 | `GEMINI_API_KEY` | no | Google AI Studio key (free tier). Powers the AI chat assistant and reads driving licenses, vehicle licenses and insurance in the fleet documents; without it the assistant is off and those details are entered by hand |
 | `ENABLE_CRON` | no | `true` to run scheduled reminders and summaries (needs a paid Render plan; free services sleep) |
 

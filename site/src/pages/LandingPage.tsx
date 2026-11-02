@@ -125,6 +125,17 @@ const LandingPage = () => {
 
       if (error) throw error;
 
+      // Email the office (the inquiry is already saved, so a failed email is not shown to the visitor)
+      const { error: notifyError } = await supabase.functions.invoke('contact-form', {
+        body: {
+          name: sanitizedData.name,
+          phone: sanitizedData.phone || '',
+          email: sanitizedData.email,
+          message: sanitizedData.message,
+        },
+      });
+      if (notifyError) console.error('Contact notification failed:', notifyError.message);
+
       toast.success("תודה על פנייתך! ניצור איתך קשר בהקדם.");
       setFormData({ name: "", phone: "", email: "", message: "" });
     } catch (error) {
@@ -135,7 +146,10 @@ const LandingPage = () => {
   };
 
   const scrollToContact = () => {
-    document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+    const heading = document.getElementById("contact-heading");
+    heading?.scrollIntoView({ behavior: "smooth" });
+    // Images above load during the scroll and move the heading, so align again once it settles
+    setTimeout(() => heading?.scrollIntoView({ behavior: "smooth" }), 1200);
   };
 
   // Scroll animations for sections
@@ -425,8 +439,8 @@ const LandingPage = () => {
           className="container mx-auto px-6 sm:px-8 md:px-8"
         >
           <div className="max-w-5xl mx-auto">
-            <div className={`text-center mb-10 md:mb-16 ${contactAnimation.isVisible ? 'animate-fade-up' : 'scroll-hidden'}`}>
-              
+            <div id="contact-heading" className={`scroll-mt-28 text-center mb-10 md:mb-16 ${contactAnimation.isVisible ? 'animate-fade-up' : 'scroll-hidden'}`}>
+
               <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4 md:mb-6 tracking-tight">
                 נשמח לשמוע מכם
               </h2>
@@ -447,8 +461,11 @@ const LandingPage = () => {
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="הזן את שמך"
                       required
-                      className="rounded-xl border-border/50 h-11 md:h-12"
+                      className={`rounded-xl border-border/50 h-11 md:h-12 ${validationErrors.name ? "border-destructive" : ""}`}
                     />
+                    {validationErrors.name && (
+                      <p className="text-sm text-destructive">{validationErrors.name}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="text-sm font-semibold">טלפון</Label>
@@ -459,8 +476,11 @@ const LandingPage = () => {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder="050-000-0000"
                       required
-                      className="rounded-xl border-border/50 h-11 md:h-12"
+                      className={`rounded-xl border-border/50 h-11 md:h-12 ${validationErrors.phone ? "border-destructive" : ""}`}
                     />
+                    {validationErrors.phone && (
+                      <p className="text-sm text-destructive">{validationErrors.phone}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-semibold">אימייל</Label>
@@ -471,8 +491,11 @@ const LandingPage = () => {
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="email@example.com"
                       required
-                      className="rounded-xl border-border/50 h-11 md:h-12"
+                      className={`rounded-xl border-border/50 h-11 md:h-12 ${validationErrors.email ? "border-destructive" : ""}`}
                     />
+                    {validationErrors.email && (
+                      <p className="text-sm text-destructive">{validationErrors.email}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message" className="text-sm font-semibold">הודעה</Label>
@@ -483,8 +506,11 @@ const LandingPage = () => {
                       placeholder="ספר לנו על הצרכים שלך..."
                       rows={4}
                       required
-                      className="rounded-xl border-border/50"
+                      className={`rounded-xl border-border/50 ${validationErrors.message ? "border-destructive" : ""}`}
                     />
+                    {validationErrors.message && (
+                      <p className="text-sm text-destructive">{validationErrors.message}</p>
+                    )}
                   </div>
                   <Button type="submit" className="w-full rounded-full h-12 md:h-14 text-base font-semibold" size="lg" disabled={isSubmitting}>
                     {isSubmitting ? (

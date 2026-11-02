@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     const message = clean(body?.message, 2000);
     if (!name || !message || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) return json({ error: "invalid_input" }, 400);
 
-    const to = Deno.env.get("CONTACT_FORM_TO") || "office@yaroknet.co.il";
+    const to = Deno.env.get("CONTACT_FORM_TO") || "maya@yaroknet.co.il";
     const receivedAt = new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" });
     const sent = await sendEmail({
       to,
