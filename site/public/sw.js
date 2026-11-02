@@ -1,8 +1,8 @@
 // Service Worker for Push Notifications and Offline Support
-const CACHE_NAME = 'yarok-fleet-v2';
-const STATIC_CACHE = 'yarok-fleet-static-v2';
-const DYNAMIC_CACHE = 'yarok-fleet-dynamic-v2';
-const API_CACHE = 'yarok-fleet-api-v2';
+const CACHE_NAME = 'yarok-fleet-v3';
+const STATIC_CACHE = 'yarok-fleet-static-v3';
+const DYNAMIC_CACHE = 'yarok-fleet-dynamic-v3';
+const API_CACHE = 'yarok-fleet-api-v3';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
