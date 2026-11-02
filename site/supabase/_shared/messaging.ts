@@ -30,6 +30,8 @@ export interface EmailInput {
   html?: string;
   text?: string;
   attachments?: EmailAttachment[];
+  /** Really sends even in dry-run mode, once SMTP is set */
+  live?: boolean;
 }
 
 async function post(path: string, body: unknown): Promise<SendResult> {

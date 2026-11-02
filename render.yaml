@@ -31,7 +31,8 @@ services:
         sync: false
       - key: GREEN_API_TOKEN
         sync: false
-      # Email from the company mailbox (SMTP)
+      # Email from the company mailbox (SMTP; needs a paid Render plan, the free plan blocks these ports).
+      # Contact-form emails are sent as soon as these are set, even while MESSAGING_DRY_RUN is "true"
       - key: SMTP_HOST # smtp.gmail.com (Google Workspace) or smtp.office365.com (Microsoft 365)
         sync: false
       - key: SMTP_PORT # 465 for Google Workspace, 587 for Microsoft 365

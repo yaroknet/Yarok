@@ -62,7 +62,8 @@ Employees log in at `/employees/` (menu: אזור אישי → עובדים).
 The backend sends WhatsApp messages through [Green API](https://green-api.com) with the company's WhatsApp
 number, and emails through the company mailbox (SMTP). There are no automation services (Make.com / n8n) in
 between. Until `MESSAGING_DRY_RUN=false` is set, nothing is sent: each message is printed in the server log and
-treated as sent, so local testing never reaches real people. Sent WhatsApp messages are recorded in
+treated as sent, so local testing never reaches real people. The exception is website contact-form emails, which are
+really sent as soon as the `SMTP_*` settings are set. Sent WhatsApp messages are recorded in
 `whatsapp_log` (employees area) and `fleet_n8n_events` (fleet), with the send result.
 
 ### Setting up Green API (WhatsApp)

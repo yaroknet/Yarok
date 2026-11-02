@@ -43,6 +43,8 @@ export interface EmailInput {
   html?: string;
   text?: string;
   attachments?: EmailAttachment[];
+  /** Really sends even in dry-run mode, once SMTP is set */
+  live?: boolean;
 }
 
 const TIMEOUT_MS = 20_000;
@@ -141,7 +143,7 @@ export async function sendEmail(input: EmailInput): Promise<SendResult> {
   if (!input.subject) return { ok: false, status: 400, error: "Missing subject" };
   if (!input.html && !input.text) return { ok: false, status: 400, error: "Empty email" };
 
-  if (config.messagingDryRun) {
+  if (config.messagingDryRun && !(input.live && emailConfigured())) {
     const files = (input.attachments ?? []).map((a) => a.filename).join(", ");
     console.log(
       `[messaging] DRY RUN — email not sent\n  To: ${to.join(", ")}${cc.length ? `\n  Cc: ${cc.join(", ")}` : ""}` +
@@ -207,4 +209,5 @@ export function logMessagingMode() {
       `[messaging] LIVE mode: WhatsApp ${s.whatsapp ? "via Green API" : "NOT configured"}, email ${s.email ? `via ${config.smtp.host}` : "NOT configured"}`,
     );
   }
+  if (s.dryRun && s.email) console.log(`[messaging] contact-form emails are still really sent, via ${config.smtp.host}`);
 }

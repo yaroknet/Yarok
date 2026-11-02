@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
     const receivedAt = new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" });
     const sent = await sendEmail({
       to,
+      live: true,
       replyTo: email,
       subject: `פנייה חדשה מהאתר — ${name}`,
       html: emailLayout(
